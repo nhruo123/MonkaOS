@@ -3,7 +3,7 @@ kernel := build/kernal-$(arch).bin
 iso := build/os-$(arch).iso
 
 target ?= i386-unknown-none
-rust_os := target/$(target)/debug/libmonkaos_grub.rlib
+rust_os := target/$(target)/debug/libmonkaos_grub.a
 
 linker_script := src/arch/$(arch)/linker.ld
 grub_cfg := src/arch/$(arch)/grub.cfg
