@@ -12,5 +12,12 @@ SECTIONS {
     {
         *(.text)
     }
+    .data : ALIGN(4K) {
+        *(.data)
+    }
+
+    .bss : ALIGN(4K) {
+        *(.bss)
+    }
 
 }
