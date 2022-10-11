@@ -10,11 +10,6 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 
 lazy_static! {
-    // pub static ref WRITER: Writer = Writer {
-    //     column_position: 0,
-    //     color: VgaColor::new(Color::Yellow, Color::Black),
-    //     buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
-    // };
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         column_position: 0,
         color: VgaColor::new(Color::Yellow, Color::Black),

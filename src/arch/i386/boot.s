@@ -9,7 +9,7 @@ page_directory:
 page_table:
     resb 4096
 bottom_stack:
-    resb 64 ; leave space for stack
+    resb 4096 * 4 ; leave space for stack
 top_stack:
 
 
@@ -68,13 +68,15 @@ enable_paging:
 
 start:
     mov esp, top_stack ; setup stack pointer
+    push ebx ; push multi boot info to stack for rust function
 
     call check_multiboot
     call set_paging
-    call enable_paging
+    ; call enable_paging I followed phil guild but its seems like he uses 64 bits that makes some of the identity mapping very easy to do,
+    ; in particular our multiboot info is outside the page table so we triple fault while trying to access it
 
     extern _start
     call _start
 
-    mov dword [0xb8000], 0x2f4b2f4f ; print OK
+    
     hlt
