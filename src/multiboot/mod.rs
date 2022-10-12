@@ -1,14 +1,12 @@
 // my take on https://www.gnu.org/software/grub/manual/multiboot2/multiboot.html#Boot-information-format with a lil inspection from phil
 
-use crate::println;
-
 use self::{
     memory_map::MemoryMapTag,
     tags::{Tag, TagIter, TagType},
 };
 
-mod memory_map;
-mod tags;
+pub mod memory_map;
+pub mod tags;
 
 pub struct MultiBootInfo {
     inner: *const MultiBootInfoInner,

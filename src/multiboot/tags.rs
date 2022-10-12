@@ -1,7 +1,5 @@
 use core::marker::PhantomData;
 
-use crate::println;
-
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TagType {
@@ -37,9 +35,7 @@ impl<'a> Iterator for TagIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match unsafe { &*self.current_tag } {
-
-            // TODO do we need this deref
-            &Tag {
+            Tag {
                 size: 8,
                 tag_type: TagType::End,
             } => None,

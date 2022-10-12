@@ -1,7 +1,5 @@
 use core::{marker::PhantomData, mem::size_of};
 
-use crate::println;
-
 use super::tags::TagType;
 
 #[derive(Debug)]

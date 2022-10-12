@@ -1,6 +1,7 @@
 review old code :(
 
-Page Allocator
+Page Allocator (done ?)
 Paging
 Kalloc
 (Custom spin lock?)
+(read how rust uses and represents iterators its kind of a black magic)
