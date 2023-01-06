@@ -3,11 +3,14 @@
 #![no_std]
 #![no_builtins]
 
+#[macro_use]
+extern crate bitflags;
+
 use core::panic::PanicInfo;
 
 use crate::{
-    memory::simple_allocator::{self, SimpleAllocator},
-    multiboot::MultiBootInfo,
+    memory::physical::buddy_allocator::BuddyAllocator,
+    multiboot::{memory_map::MemoryEntryType, MultiBootInfo},
 };
 
 mod memory;
@@ -27,18 +30,21 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
         "memory map (of len {}) entries:",
         memory_map_tag.get_memory_map_entries().count()
     );
+
+    let mut largest_mem_addr: usize = 0;
+    let mut largest_size: usize = 0;
+
     for entry in memory_map_tag.get_memory_map_entries() {
+        if (entry.memory_type == MemoryEntryType::Available)
+            && ((entry.length as usize) > largest_size)
+        {
+            largest_mem_addr = entry.base_addr as usize;
+            largest_size = entry.length as usize;
+        }
         println!("{:?}", entry);
     }
 
-    let mut simple_allocator =
-        SimpleAllocator::new(&memory_map_tag.get_memory_map_entries(), 0..0, 0..0);
-
-    println!("we are about to allocate frames!");
-    for i in 0..10 {
-        let frame = simple_allocator.get_next_frame();
-        println!("{} frame is: {:?}", i, frame)
-    }
+    let _buddy_allocator = BuddyAllocator::new(largest_mem_addr as *const u8, largest_size);
 
     println!("hello form the other side!");
     loop {}

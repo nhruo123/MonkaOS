@@ -2,6 +2,8 @@ arch ?= i386
 kernel := build/kernal-$(arch).bin
 iso := build/os-$(arch).iso
 
+colon := :
+
 target ?= i386-unknown-none
 rust_os := target/$(target)/debug/libmonkaos_grub.a
 
@@ -30,7 +32,7 @@ $(iso): $(kernel) $(grub_cfg)
 	@rm -r build/isofiles
 
 	
-$(kernel): kernel $(assembly_object_files) $(linker_script)
+$(kernel): kernel $(assembly_object_files) $(linker_script) 
 	@ld --gc-sections -m elf_$(arch) -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(rust_os)
 
 kernel:

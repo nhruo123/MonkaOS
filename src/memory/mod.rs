@@ -1,11 +1,3 @@
-pub mod simple_allocator;
+pub mod physical;
 
-#[derive(Debug)]
-pub struct Frame {
-    pub physical_addr: usize,
-}
-
-pub trait FrameAllocator {
-    fn allocate_frame(&mut self) -> Option<Frame>;
-    fn free_frame(&mut self, frame: Frame);
-}
+pub type PhysicalAddress = usize;
