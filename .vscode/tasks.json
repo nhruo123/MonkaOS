@@ -16,18 +16,16 @@
       "type": "shell",
       "isBackground": true,
       // "dependsOn": ["Build iso"],
-      "command": [
-        "echo Starting QEMU; qemu-system-i386.exe ${workspaceFolder}/build/os-i386.iso -s -S"
-      ],
+      "command": "qemu-system-i386.exe ${workspaceFolder}/build/os-i386.iso -s -S",
       "problemMatcher": {
         "pattern": {
-          "regexp": "^(Starting QEMU)",
+          "regexp": ".*",
           "line": 1
         },
         "background": {
           "activeOnStart": true,
-          "beginsPattern": "^(Starting QEMU)",
-          "endsPattern": "^(Starting QEMU)"
+          "beginsPattern": ".*",
+          "endsPattern": ".*"
         }
       }
     }

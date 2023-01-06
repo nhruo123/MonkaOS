@@ -36,7 +36,7 @@ $(kernel): kernel $(assembly_object_files) $(linker_script)
 	@ld --gc-sections -m elf_$(arch) -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(rust_os)
 
 kernel:
-	@cargo build
+	@cargo build --color always
 
 build/arch/$(arch)/%.o: src/arch/$(arch)/%.s
 	@mkdir -p $(shell dirname $@)
