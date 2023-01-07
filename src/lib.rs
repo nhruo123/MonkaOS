@@ -9,7 +9,7 @@ extern crate bitflags;
 use core::panic::PanicInfo;
 
 use crate::{
-    memory::physical::buddy_allocator::BuddyAllocator,
+    memory::physical::buddy_allocator::buddy_allocator::BuddyAllocator,
     multiboot::{memory_map::MemoryEntryType, MultiBootInfo},
 };
 
@@ -44,7 +44,31 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
         println!("{:?}", entry);
     }
 
-    let _buddy_allocator = BuddyAllocator::new(largest_mem_addr as *const u8, largest_size);
+    let mut buddy_allocator = BuddyAllocator::new(largest_mem_addr, largest_size);
+
+    let page1 = buddy_allocator.allocate(1024 * 1024).unwrap();
+    let page2 = buddy_allocator.allocate(1024 * 1024).unwrap();
+    let page3 = buddy_allocator.allocate(1).unwrap();
+
+    println!("page1: {:#x?}", page1.base_address);
+    println!("page2: {:#x?}", page2.base_address);
+    println!("page3: {:#x?}", page3.base_address);
+
+    buddy_allocator.free(page3).unwrap();
+    buddy_allocator.free(page2).unwrap();
+    buddy_allocator.free(page1).unwrap();
+
+    let page1 = buddy_allocator.allocate(1024 * 1024).unwrap();
+    let page2 = buddy_allocator.allocate(1024 * 1024).unwrap();
+    let page3 = buddy_allocator.allocate(1).unwrap();
+
+    println!("page1: {:#x?}", page1.base_address);
+    println!("page2: {:#x?}", page2.base_address);
+    println!("page3: {:#x?}", page3.base_address);
+
+    buddy_allocator.free(page3).unwrap();
+    buddy_allocator.free(page2).unwrap();
+    buddy_allocator.free(page1).unwrap();
 
     println!("hello form the other side!");
     loop {}

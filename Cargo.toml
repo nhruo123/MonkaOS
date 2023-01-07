@@ -18,8 +18,8 @@ crate-type = ["staticlib"]
 
 
 [profile.dev]
-overflow-checks = false
-debug-assertions = false
+overflow-checks = true
+debug-assertions = true
 lto = "off"
 opt-level = 0
 panic = "abort"
