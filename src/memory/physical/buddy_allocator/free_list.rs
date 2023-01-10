@@ -1,42 +1,129 @@
 use core::{marker::PhantomData, ptr::NonNull};
 
-use crate::println;
-
-// This is a free list of buddy blocks
+// This is a free list that lives inside the memory it reports about
 #[repr(C)]
-pub struct FreeList<'a> {
-    head: Option<NonNull<NodeLink<'a>>>,
-    _phantom: PhantomData<&'a NodeLink<'a>>,
+pub struct FreeInlineList<T> {
+    head: Link<T>,
+    tail: Link<T>,
+    len: usize,
+    _phantom: PhantomData<T>,
 }
 
-struct NodeLink<'a> {
-    next: Option<NonNull<NodeLink<'a>>>,
-    prev: Option<NonNull<NodeLink<'a>>>,
-    _phantom: PhantomData<&'a NodeLink<'a>>,
+type Link<T> = Option<NonNull<Node<T>>>;
+
+#[repr(C)]
+struct Node<T> {
+    next: Link<T>,
+    prev: Link<T>,
+    data: T,
 }
 
-impl<'a> FreeList<'a> {
-    pub fn new_empty() -> Self {
+impl<T> FreeInlineList<T> {
+    pub fn new() -> Self {
         Self {
             head: None,
+            tail: None,
+            len: 0,
             _phantom: PhantomData,
         }
     }
 
-    pub fn pop(&mut self) -> Option<usize> {
-        if let Some(mut head) = self.head {
-            self.head = unsafe { head.as_mut().next };
+    pub fn push_head(&mut self, free_addr: usize, data: T) {
+        unsafe {
+            let new = NonNull::new_unchecked(free_addr as *mut Node<T>);
+            *new.as_ptr() = Node {
+                data,
+                next: None,
+                prev: None,
+            };
 
-            return Some(head.as_ptr() as usize);
-        } else {
-            return None;
+            if let Some(old_head) = self.head {
+                (*old_head.as_ptr()).prev = Some(new);
+                (*new.as_ptr()).next = Some(old_head);
+            } else {
+                debug_assert!(self.tail.is_none());
+                debug_assert!(self.head.is_none());
+                debug_assert!(self.len == 0);
+
+                self.tail = Some(new);
+            }
+
+            self.head = Some(new);
+            self.len += 1;
         }
     }
 
-    pub fn remove_at_address(&mut self, node_addr: usize) {
-        debug_assert!(self.head.is_some());
+    pub fn pop_head(&mut self) -> Option<usize> {
+        unsafe {
+            self.head.map(|old_head| {
+                self.head = (*old_head.as_ptr()).next;
 
-        let node_ptr = node_addr as *mut NodeLink;
+                if let Some(new_head) = self.head {
+                    (*new_head.as_ptr()).prev = None;
+                } else {
+                    debug_assert!(self.len == 1);
+                    self.tail = None;
+                }
+
+                self.len -= 1;
+
+                old_head.as_ptr() as usize
+            })
+        }
+    }
+
+    pub fn push_tail(&mut self, free_addr: usize, data: T) {
+        unsafe {
+            let new = NonNull::new_unchecked(free_addr as *mut Node<T>);
+            *new.as_ptr() = Node {
+                data,
+                next: None,
+                prev: None,
+            };
+
+            if let Some(old_tail) = self.tail {
+                (*old_tail.as_ptr()).next = Some(new);
+                (*new.as_ptr()).prev = Some(old_tail);
+            } else {
+                debug_assert!(self.tail.is_none());
+                debug_assert!(self.head.is_none());
+                debug_assert!(self.len == 0);
+
+                self.head = Some(new);
+            }
+
+            self.tail = Some(new);
+            self.len += 1;
+        }
+    }
+
+    pub fn pop_tail(&mut self) -> Option<usize> {
+        unsafe {
+            self.tail.map(|old_head| {
+                let result = old_head.as_ptr() as usize;
+
+                self.head = (*old_head.as_ptr()).prev;
+
+                if let Some(new_head) = self.head {
+                    (*new_head.as_ptr()).next = None;
+                } else {
+                    debug_assert!(self.len == 1);
+                    self.head = None;
+                }
+
+                self.len -= 1;
+
+                result
+            })
+        }
+    }
+
+    pub fn pop_at_address(&mut self, node_addr: usize) {
+        debug_assert!(self.head.is_some());
+        debug_assert!(self.tail.is_some());
+
+        let node_ptr = node_addr as *mut Node<T>;
+
         unsafe {
             let next_node = (*node_ptr).next;
             let prev_node = (*node_ptr).prev;
@@ -52,25 +139,37 @@ impl<'a> FreeList<'a> {
             if node_ptr == self.head.unwrap().as_ptr() {
                 self.head = next_node;
             }
-        }
-    }
 
-    pub fn insert(&mut self, free_addr: usize) {
-        let new_node_ptr = free_addr as *mut NodeLink;
-
-        let new_node_ref = unsafe { &mut *new_node_ptr };
-        new_node_ref.next = None;
-        new_node_ref.prev = None;
-
-        let new_node = Some(unsafe { NonNull::new_unchecked(new_node_ptr) });
-
-        if let Some(mut old_head) = self.head {
-            unsafe {
-                old_head.as_mut().prev = new_node;
-                new_node_ref.next = Some(NonNull::new_unchecked(old_head.as_ptr()));
+            if node_ptr == self.tail.unwrap().as_ptr() {
+                self.tail = prev_node;
             }
         }
 
-        self.head = new_node;
+        self.len -= 1;
+    }
+
+    pub fn pop_on<F>(&mut self, f: F) -> Option<usize>
+    where
+        F: Fn(&T) -> bool,
+    {
+        let mut current_node = self.head;
+
+        while let Some(node_ptr) = current_node {
+            unsafe {
+                if f(&(*node_ptr.as_ptr()).data) {
+                    let node_addr = node_ptr.as_ptr() as usize;
+                    self.pop_at_address(node_addr);
+                    return Some(node_addr);
+                } else {
+                    current_node = (*node_ptr.as_ptr()).next;
+                }
+            }
+        }
+
+        return None;
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
     }
 }

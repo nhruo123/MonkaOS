@@ -2,99 +2,104 @@ use core::{marker::PhantomData, slice::from_raw_parts_mut};
 
 use crate::memory::physical::{AllocatorError, PhysicalMemoryBlock, Result};
 
-use super::{bitmap::BitMap, free_list::FreeList, memory_area::MemoryArea, BLOCK_SIZES};
+use super::{bitmap::BitMap, free_list::FreeInlineList, memory_area::MemoryArea, BLOCK_SIZES};
 
 #[repr(C)]
-pub struct BuddyAllocator<'a> {
-    memory_areas: [MemoryArea<'a>; BLOCK_SIZES.len()],
+pub struct BuddyAllocator {
+    memory_areas: [MemoryArea; BLOCK_SIZES.len()],
     size: usize,
     remaining_memory: usize,
     base_address: usize,
 }
 
-impl<'a> BuddyAllocator<'a> {
+impl BuddyAllocator {
     pub fn new(base_address: usize, size: usize) -> Self {
-        let largest_block = *BLOCK_SIZES.last().unwrap();
+        let largest_block_size = *BLOCK_SIZES.last().unwrap();
 
         // we must be biggest block aligned for xor trick to work at buddy pair search
-        let aligned_base_address = base_address + (largest_block - (base_address % largest_block));
-        let aligned_size = size - (aligned_base_address - base_address);
+        let aligned_base_address = base_address + (base_address % largest_block_size);
+
+        let size = size - (aligned_base_address - base_address);
+        let base_address = aligned_base_address;
 
         let mut memory_areas_byte_count: [usize; BLOCK_SIZES.len()] = [0; BLOCK_SIZES.len()];
 
-        let mut total_byte_count = 0;
+        let mut total_bitmap_bytes = 0;
 
         for block_size_index in 0..BLOCK_SIZES.len() {
             // we divide the size of the allocator by the block size and then by 8 to count bytes and by 2 because we pair buddies together
             let divisor = BLOCK_SIZES[block_size_index] * 2 * 8;
-            memory_areas_byte_count[block_size_index] = (aligned_size + divisor - 1) / divisor;
+            memory_areas_byte_count[block_size_index] = (size + divisor - 1) / divisor;
 
-            total_byte_count += memory_areas_byte_count[block_size_index];
+            total_bitmap_bytes += memory_areas_byte_count[block_size_index];
         }
 
-        let mut fittest_block_size = largest_block;
-        for &block_size in BLOCK_SIZES {
-            if block_size > size {
-                fittest_block_size = block_size;
-                break;
-            }
-        }
+        let fittest_block_size_for_bitmaps = BLOCK_SIZES
+            .iter()
+            .find(|&&block_size| block_size > total_bitmap_bytes)
+            .map(|&block_size| block_size)
+            .unwrap_or(largest_block_size);
 
         // round up to the largest block count
-        let required_fit_blocks = (total_byte_count + fittest_block_size - 1) / fittest_block_size;
+        let required_fit_blocks = (total_bitmap_bytes + fittest_block_size_for_bitmaps - 1)
+            / fittest_block_size_for_bitmaps;
 
-        let final_size = aligned_size - (required_fit_blocks * fittest_block_size);
+        let size = size - (required_fit_blocks * fittest_block_size_for_bitmaps);
 
         // get a pointer to the bitmap memory region
-        let mut bitmap_current_address = unsafe { (base_address as *const u8).add(final_size) };
+        let mut bitmap_current_address = unsafe { (base_address as *const u8).add(size) };
 
         let memory_areas: [MemoryArea; BLOCK_SIZES.len()] =
             core::array::from_fn(|i| i).map(|index| {
                 let byte_count = memory_areas_byte_count[index];
 
-                let bitmap = BitMap::new(unsafe {
-                    from_raw_parts_mut(bitmap_current_address as *mut u8, byte_count)
-                });
+                let bitmap = BitMap::new(bitmap_current_address as usize, byte_count);
 
                 bitmap_current_address = unsafe { bitmap_current_address.add(byte_count) };
 
                 MemoryArea {
                     bitmap,
-                    free_list: FreeList::new_empty(),
+                    free_list: FreeInlineList::new(),
                     block_size: BLOCK_SIZES[index],
                     merge_buddies: index != (BLOCK_SIZES.len() - 1),
-                    _phantom: PhantomData,
                 }
             });
 
         let mut new_allocator = Self {
             memory_areas,
-            size: final_size,
+            size,
             remaining_memory: 0,
-            base_address: aligned_base_address,
+            base_address,
         };
 
-        let mut remaining_heap_size = final_size;
+        new_allocator.populate_memory();
+
+        new_allocator
+    }
+
+    fn populate_memory(&mut self) {
+        let smallest_block_size = self.memory_areas.first().unwrap().block_size;
+
+        let mut remaining_size = self.size;
+        let mut next_block_address = self.base_address;
+
         let mut current_block_size_index = BLOCK_SIZES.len() - 1;
 
-        while remaining_heap_size >= *BLOCK_SIZES.first().unwrap() {
-            if remaining_heap_size < BLOCK_SIZES[current_block_size_index] {
+        while remaining_size >= smallest_block_size {
+            if remaining_size < BLOCK_SIZES[current_block_size_index] {
                 current_block_size_index -= 1;
                 continue;
             }
 
-            new_allocator
-                .free(PhysicalMemoryBlock {
-                    base_address: new_allocator.base_address + new_allocator.size
-                        - remaining_heap_size,
-                    size: BLOCK_SIZES[current_block_size_index],
-                })
-                .unwrap();
+            self.free(PhysicalMemoryBlock {
+                base_address: next_block_address,
+                size: self.memory_areas[current_block_size_index].block_size,
+            })
+            .unwrap();
 
-            remaining_heap_size -= BLOCK_SIZES[current_block_size_index];
+            remaining_size -= self.memory_areas[current_block_size_index].block_size;
+            next_block_address += self.memory_areas[current_block_size_index].block_size;
         }
-
-        new_allocator
     }
 
     pub fn remaining_memory(&self) -> usize {

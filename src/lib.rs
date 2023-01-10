@@ -45,27 +45,34 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
     }
 
     let mut buddy_allocator = BuddyAllocator::new(largest_mem_addr, largest_size);
+    println!("-----MEM TEST-----");
 
     let page1 = buddy_allocator.allocate(1024 * 1024).unwrap();
     let page2 = buddy_allocator.allocate(1024 * 1024).unwrap();
-    let page3 = buddy_allocator.allocate(1).unwrap();
+    let page3 = buddy_allocator.allocate(1024 * 1024).unwrap();
+    let page4 = buddy_allocator.allocate(1).unwrap();
 
     println!("page1: {:#x?}", page1.base_address);
     println!("page2: {:#x?}", page2.base_address);
     println!("page3: {:#x?}", page3.base_address);
+    println!("page4: {:#x?}", page4.base_address);
 
+    buddy_allocator.free(page4).unwrap();
     buddy_allocator.free(page3).unwrap();
     buddy_allocator.free(page2).unwrap();
     buddy_allocator.free(page1).unwrap();
 
     let page1 = buddy_allocator.allocate(1024 * 1024).unwrap();
     let page2 = buddy_allocator.allocate(1024 * 1024).unwrap();
-    let page3 = buddy_allocator.allocate(1).unwrap();
+    let page3 = buddy_allocator.allocate(1024 * 1024).unwrap();
+    let page4 = buddy_allocator.allocate(1).unwrap();
 
     println!("page1: {:#x?}", page1.base_address);
     println!("page2: {:#x?}", page2.base_address);
     println!("page3: {:#x?}", page3.base_address);
+    println!("page4: {:#x?}", page4.base_address);
 
+    buddy_allocator.free(page4).unwrap();
     buddy_allocator.free(page3).unwrap();
     buddy_allocator.free(page2).unwrap();
     buddy_allocator.free(page1).unwrap();
