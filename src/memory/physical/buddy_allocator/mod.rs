@@ -1,6 +1,5 @@
 mod bitmap;
 pub mod buddy_allocator;
-mod free_list;
 mod memory_area;
 
 // google "interrupt safe spinlock"

@@ -7,7 +7,8 @@ use core::{
 };
 
 use lazy_static::lazy_static;
-use spin::Mutex;
+
+use crate::mutex::Mutex;
 
 lazy_static! {
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
@@ -79,7 +80,7 @@ impl Buffer {
 pub struct Writer {
     pub(crate) buffer: &'static mut Buffer,
     pub(crate) column_position: usize,
-    
+
     pub(crate) color: VgaColor,
 }
 

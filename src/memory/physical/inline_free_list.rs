@@ -1,8 +1,8 @@
 use core::{marker::PhantomData, ptr::NonNull};
 
 // This is a free list that lives inside the memory it reports about
-#[repr(C)]
-pub struct FreeInlineList<T> {
+#[derive(Debug)]
+pub struct InlineFreeList<T> {
     head: Link<T>,
     tail: Link<T>,
     len: usize,
@@ -18,8 +18,8 @@ struct Node<T> {
     data: T,
 }
 
-impl<T> FreeInlineList<T> {
-    pub fn new() -> Self {
+impl<T> InlineFreeList<T> {
+    pub const fn new() -> Self {
         Self {
             head: None,
             tail: None,

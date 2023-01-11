@@ -1,10 +1,10 @@
-use core::{marker::PhantomData, slice::from_raw_parts_mut};
+use crate::memory::physical::{
+    inline_free_list::InlineFreeList, AllocatorError, PhysicalMemoryAllocator, PhysicalMemoryBlock,
+    Result,
+};
 
-use crate::memory::physical::{AllocatorError, PhysicalMemoryBlock, Result};
+use super::{bitmap::BitMap, memory_area::MemoryArea, BLOCK_SIZES};
 
-use super::{bitmap::BitMap, free_list::FreeInlineList, memory_area::MemoryArea, BLOCK_SIZES};
-
-#[repr(C)]
 pub struct BuddyAllocator {
     memory_areas: [MemoryArea; BLOCK_SIZES.len()],
     size: usize,
@@ -59,7 +59,7 @@ impl BuddyAllocator {
 
                 MemoryArea {
                     bitmap,
-                    free_list: FreeInlineList::new(),
+                    free_list: InlineFreeList::new(),
                     block_size: BLOCK_SIZES[index],
                     merge_buddies: index != (BLOCK_SIZES.len() - 1),
                 }
@@ -177,5 +177,19 @@ impl BuddyAllocator {
             }
         }
         None
+    }
+
+    pub fn smallest_block_size(&self) -> usize {
+        self.memory_areas.first().unwrap().block_size
+    }
+}
+
+impl PhysicalMemoryAllocator for BuddyAllocator {
+    fn allocate(&mut self, size: usize) -> Result<PhysicalMemoryBlock> {
+        self.allocate(size)
+    }
+
+    fn free(&mut self, physical_memory_block: PhysicalMemoryBlock) -> Result<()> {
+        self.free(physical_memory_block)
     }
 }

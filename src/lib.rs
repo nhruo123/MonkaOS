@@ -5,16 +5,20 @@
 
 #[macro_use]
 extern crate bitflags;
+extern crate alloc;
 
 use core::panic::PanicInfo;
 
+use alloc::vec::Vec;
+
 use crate::{
-    memory::physical::buddy_allocator::buddy_allocator::BuddyAllocator,
+    memory::physical::{buddy_allocator::buddy_allocator::BuddyAllocator, global_alloc::ALLOCATOR},
     multiboot::{memory_map::MemoryEntryType, MultiBootInfo},
 };
 
 mod memory;
 mod multiboot;
+mod mutex;
 mod vga_buffer;
 
 #[no_mangle]
@@ -76,6 +80,32 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
     buddy_allocator.free(page3).unwrap();
     buddy_allocator.free(page2).unwrap();
     buddy_allocator.free(page1).unwrap();
+
+    {
+        let mut alloc = ALLOCATOR.lock();
+        alloc.init(buddy_allocator);
+
+        let first_alloc = alloc.allocate(10).unwrap();
+        println!("first_alloc: {:#x?}", first_alloc);
+
+        alloc.free(first_alloc).unwrap();
+        let first_alloc = alloc.allocate(10).unwrap();
+        println!("first_alloc: {:#x?}", first_alloc);
+
+        alloc.free(first_alloc).unwrap();
+    };
+
+    let mut v = Vec::new();
+
+    for i in 0..100 {
+        v.push(i);
+    }
+    println!("This is a vec after push: {:?}", v);
+
+    for _ in 0..100 {
+        v.pop();
+    }
+    println!("This is a vec after pop: {:?}", v);
 
     println!("hello form the other side!");
     loop {}

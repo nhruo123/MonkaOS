@@ -1,10 +1,9 @@
-use crate::println;
+use crate::memory::physical::inline_free_list::InlineFreeList;
 
-use super::{bitmap::BitMap, free_list::FreeInlineList};
+use super::bitmap::BitMap;
 
-#[repr(C)]
 pub struct MemoryArea {
-    pub free_list: FreeInlineList<()>,
+    pub free_list: InlineFreeList<()>,
     pub bitmap: BitMap,
     pub block_size: usize,
     pub merge_buddies: bool,
@@ -40,7 +39,6 @@ impl MemoryArea {
     // returns true if blocks have been merged
     pub fn free_block(&mut self, freed_memory: usize, alloc_base_addr: usize) -> Option<bool> {
         debug_assert!(freed_memory >= alloc_base_addr);
-
 
         let buddy_addr = freed_memory ^ self.block_size;
         let buddy_index = self.get_buddy_bitmap_index(alloc_base_addr, freed_memory);

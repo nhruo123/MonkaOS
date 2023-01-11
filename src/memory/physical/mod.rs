@@ -1,6 +1,9 @@
 use super::PhysicalAddress;
 
 pub mod buddy_allocator;
+pub mod global_alloc;
+mod fixed_block_allocator;
+mod inline_free_list;
 
 pub type Result<T> = core::result::Result<T, AllocatorError>;
 
@@ -11,8 +14,8 @@ pub struct PhysicalMemoryBlock {
 }
 
 pub trait PhysicalMemoryAllocator {
-    fn allocate(&mut self, size: usize) -> Option<PhysicalMemoryBlock>;
-    fn free(&mut self, physical_memory_block: PhysicalMemoryBlock);
+    fn allocate(&mut self, size: usize) -> Result<PhysicalMemoryBlock>;
+    fn free(&mut self, physical_memory_block: PhysicalMemoryBlock) -> Result<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -20,4 +23,5 @@ pub enum AllocatorError {
     OutOfMemory,
     UnsupportedSize,
     FreeOutOfBounds,
+    UninitializedAllocator
 }
