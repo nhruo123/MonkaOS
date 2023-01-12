@@ -5,6 +5,7 @@
 
 #[macro_use]
 extern crate bitflags;
+
 extern crate alloc;
 
 use core::panic::PanicInfo;
@@ -12,10 +13,13 @@ use core::panic::PanicInfo;
 use alloc::vec::Vec;
 
 use crate::{
+    gdt::load_gdt,
     memory::physical::{buddy_allocator::buddy_allocator::BuddyAllocator, global_alloc::ALLOCATOR},
     multiboot::{memory_map::MemoryEntryType, MultiBootInfo},
 };
 
+mod gdt;
+mod interrupts;
 mod memory;
 mod multiboot;
 mod mutex;
@@ -23,6 +27,8 @@ mod vga_buffer;
 
 #[no_mangle]
 pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
+    load_gdt();
+
     println!("multiboot_info_ptr: {:x?}", multiboot_info_ptr);
     let multiboot_info = MultiBootInfo::new(multiboot_info_ptr);
 

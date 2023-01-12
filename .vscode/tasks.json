@@ -16,6 +16,7 @@
       "type": "shell",
       "isBackground": true,
       // "dependsOn": ["Build iso"],
+      // "command": "qemu-system-i386.exe ${workspaceFolder}/build/os-i386.iso -s -S -monitor stdio",
       "command": "qemu-system-i386.exe ${workspaceFolder}/build/os-i386.iso -s -S",
       "problemMatcher": {
         "pattern": {

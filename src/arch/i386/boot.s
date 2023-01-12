@@ -9,7 +9,7 @@ page_directory:
 page_table:
     resb 4096
 bottom_stack:
-    resb 4096 * 4 ; leave space for stack
+    resb 4096 * 8 ; leave space for stack
 top_stack:
 
 
