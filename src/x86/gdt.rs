@@ -8,14 +8,7 @@ use modular_bitfield::{
     specifiers::{B1, B13, B2, B4},
 };
 
-use crate::println;
-
-#[derive(Clone, Copy, Default, Debug)]
-#[repr(C, packed)]
-pub struct GDTDescriptor {
-    size: u16,
-    offset: u32,
-}
+use super::{PrivilegeLevel, TableDescriptor};
 
 #[bitfield]
 #[derive(Clone, Copy, Default, Debug)]
@@ -37,17 +30,17 @@ struct GDTEntryAccessByte {
     direction: B1,
     executable: B1,
     descriptor_type: B1,
-    privilege_level: B2,
+    privilege_level: PrivilegeLevel,
     present: bool,
 }
 
 #[bitfield]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 #[repr(C, packed)]
 pub struct SegmentSelector {
-    privilege_level: B2,
-    is_local: bool,
-    index: B13,
+    pub privilege_level: PrivilegeLevel,
+    pub is_local: bool,
+    pub index: B13,
 }
 
 impl SegmentSelector {
@@ -55,7 +48,7 @@ impl SegmentSelector {
         SegmentSelector::new()
             .with_index(2)
             .with_is_local(false)
-            .with_privilege_level(0)
+            .with_privilege_level(PrivilegeLevel::RingZero)
     }
 }
 
@@ -134,9 +127,6 @@ impl GDTEntry {
 }
 
 const GDT_SIZE: usize = 3;
-const NULL_SEGMENT_INDEX: usize = 0;
-const CODE_SEGMENT_INDEX: usize = 1;
-const DATA_SEGMENT_INDEX: usize = 2;
 
 lazy_static! {
     static ref GDT: [GDTEntry; GDT_SIZE] = [
@@ -144,19 +134,30 @@ lazy_static! {
         GDTEntry::code_segment(),
         GDTEntry::data_segment()
     ];
-    static ref GDT_DESCRIPTOR: GDTDescriptor = GDTDescriptor {
-        offset: (&*GDT as *const _) as u32,
-        size: (GDT.len() * size_of::<GDTEntry>()) as u16,
-    };
+}
+
+extern "C" {
+    fn inner_load_gdt(gdt_descriptor_ptr: usize, code_segment: usize, data_segment: usize);
 }
 
 pub fn load_gdt() {
     unsafe {
-        let gdt_descriptor_ptr = &*GDT_DESCRIPTOR as *const _;
+        let gdt_descriptor = TableDescriptor {
+            offset: (&*GDT as *const _) as u32,
+            size: (GDT.len() * size_of::<GDTEntry>()) as u16 - 1,
+        };
+        let gdt_descriptor_ptr = &gdt_descriptor as *const _ as usize;
+        let code_segment = 1 * size_of::<GDTEntry>();
+        let data_segment = 2 * size_of::<GDTEntry>();
 
-        asm!(
-            "LGDT [{gdt_descriptor_ptr}]",
-            gdt_descriptor_ptr = in(reg) gdt_descriptor_ptr,
-        )
+        inner_load_gdt(gdt_descriptor_ptr, code_segment, data_segment);
     }
+}
+
+pub unsafe  fn get_cs() -> u16 {
+    let cs: u16;
+
+    asm!("MOV {segment:x}, cs", segment = out(reg) cs,  options(nomem, nostack, preserves_flags));
+
+    return cs;
 }

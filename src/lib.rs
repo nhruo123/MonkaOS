@@ -2,6 +2,7 @@
 #![feature(lang_items)]
 #![no_std]
 #![no_builtins]
+#![feature(abi_x86_interrupt)]
 
 #[macro_use]
 extern crate bitflags;
@@ -13,13 +14,12 @@ use core::panic::PanicInfo;
 use alloc::vec::Vec;
 
 use crate::{
-    gdt::load_gdt,
     memory::physical::{buddy_allocator::buddy_allocator::BuddyAllocator, global_alloc::ALLOCATOR},
     multiboot::{memory_map::MemoryEntryType, MultiBootInfo},
+    x86::{gdt::load_gdt, interrupts::idt::load_idt},
 };
 
-mod gdt;
-mod interrupts;
+mod x86;
 mod memory;
 mod multiboot;
 mod mutex;
@@ -28,6 +28,7 @@ mod vga_buffer;
 #[no_mangle]
 pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
     load_gdt();
+    load_idt();
 
     println!("multiboot_info_ptr: {:x?}", multiboot_info_ptr);
     let multiboot_info = MultiBootInfo::new(multiboot_info_ptr);

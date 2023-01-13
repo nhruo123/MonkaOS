@@ -1,6 +1,6 @@
 use core::{
     cell::UnsafeCell,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, Ordering}, hint,
 };
 
 pub struct Mutex<T> {
@@ -28,7 +28,9 @@ impl<T> Mutex<T> {
             .lock
             .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
             .is_err()
-        {}
+        {
+            hint::spin_loop();
+        }
 
         MutexGuard {
             lock: &self.lock,

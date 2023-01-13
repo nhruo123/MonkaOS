@@ -3,5 +3,9 @@
     "cSpell.words": [
         "Acpi",
         "multiboot"
-    ]
+    ],
+    "lldb.displayFormat": "auto",
+    "lldb.showDisassembly": "always",
+    "lldb.dereferencePointers": true,
+    "lldb.consoleMode": "commands"
 }
