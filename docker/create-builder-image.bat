@@ -1,1 +1,1 @@
-docker build ./docker --tag os-builder
+docker build ./docker --tag os-builder --no-cache 

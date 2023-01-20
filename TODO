@@ -5,3 +5,10 @@ Paging
 Kalloc
 (Custom spin lock?)
 (read how rust uses and represents iterators its kind of a black magic)
+
+
+
+
+DRIVERS TO IMPLEMENT:
+http://realtek.info/pdf/rtl8139d.pdf
+https://www.intel.com/content/dam/doc/manual/8255x-10-100-mbps-ethernet-controller-software-dev-manual.pdf

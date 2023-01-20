@@ -2,10 +2,9 @@ use modular_bitfield::BitfieldSpecifier;
 
 pub mod gdt;
 pub mod interrupts;
+pub mod io;
 
-
-#[derive(BitfieldSpecifier)]
-#[derive(Clone, Copy, Debug)]
+#[derive(BitfieldSpecifier, Clone, Copy, Debug)]
 #[bits = 2]
 pub enum PrivilegeLevel {
     RingZero = 0,

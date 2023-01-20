@@ -3,6 +3,8 @@
 #![no_std]
 #![no_builtins]
 #![feature(abi_x86_interrupt)]
+#![feature(default_alloc_error_handler)]
+#![feature(core_intrinsics)]
 
 #[macro_use]
 extern crate bitflags;
@@ -16,14 +18,16 @@ use alloc::vec::Vec;
 use crate::{
     memory::physical::{buddy_allocator::buddy_allocator::BuddyAllocator, global_alloc::ALLOCATOR},
     multiboot::{memory_map::MemoryEntryType, MultiBootInfo},
+    pci::check_pci_buses,
     x86::{gdt::load_gdt, interrupts::idt::load_idt},
 };
 
-mod x86;
 mod memory;
 mod multiboot;
 mod mutex;
+mod pci;
 mod vga_buffer;
+mod x86;
 
 #[no_mangle]
 pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
@@ -113,6 +117,12 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
         v.pop();
     }
     println!("This is a vec after pop: {:?}", v);
+
+    let mut pci_devices = check_pci_buses();
+
+    for device in &mut pci_devices {
+        println!("{:#x?}", device);
+    }
 
     println!("hello form the other side!");
     loop {}

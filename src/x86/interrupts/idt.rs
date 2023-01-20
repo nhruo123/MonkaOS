@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use modular_bitfield::{
     bitfield,
     specifiers::{B1, B2, B4},
+    BitfieldSpecifier,
 };
 
 use crate::{
@@ -22,18 +23,25 @@ use super::{generic_interrupt_handler, ExceptionHandler, InterruptHandler};
 macro_rules! impl_set_handler_fn {
     ($type:ty) => {
         impl IDTEntry<$type> {
-            pub fn set_handler_fn(&mut self, handler: $type) {
+            pub fn set_handler_fn(&mut self, handler: $type) -> &mut IDTEntryFlags {
                 unsafe { self.set_handler_addr(handler as usize) }
             }
         }
     };
 }
 
+#[derive(BitfieldSpecifier, Clone, Copy, Debug)]
+#[bits = 4]
+pub enum InterruptGateType {
+    InterruptGate = 0b1110,
+    TrapGate = 0b1111,
+}
+
 #[bitfield]
 #[derive(Clone, Copy, Default, Debug)]
 #[repr(C)]
 pub struct IDTEntryFlags {
-    gate_type: B4,
+    gate_type: InterruptGateType,
     zero: B1,
     privilege_level: PrivilegeLevel,
     present: bool,
@@ -62,7 +70,7 @@ impl<F> IDTEntry<F> {
         }
     }
 
-    unsafe fn set_handler_addr(&mut self, addr: usize) {
+    unsafe fn set_handler_addr(&mut self, addr: usize) -> &mut IDTEntryFlags {
         self.lower_half_offset = addr as u16;
         self.higher_half_offset = (addr >> 16) as u16;
 
@@ -70,9 +78,11 @@ impl<F> IDTEntry<F> {
             .set_index(unsafe { gdt::get_cs() } >> 3);
 
         self.flags.set_present(true);
-        // gate type too lazy to create enum for single use
-        self.flags.set_gate_type(0b1110);
+
+        self.flags.set_gate_type(InterruptGateType::InterruptGate);
         self.flags.set_privilege_level(PrivilegeLevel::RingZero);
+
+        &mut self.flags
     }
 }
 
@@ -156,6 +166,7 @@ lazy_static! {
         let mut idt = InterruptDescriptorTable::new();
 
         idt.breakpoint.set_handler_fn(generic_interrupt_handler);
+        idt.division_error.set_handler_fn(generic_interrupt_handler);
 
         idt
     };

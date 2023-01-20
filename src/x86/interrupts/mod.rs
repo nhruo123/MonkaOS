@@ -73,7 +73,5 @@ extern "x86-interrupt" fn generic_interrupt_handler(
         interrupt_stack_frame
     );
 
-    loop {
-        
-    }
+    loop {}
 }

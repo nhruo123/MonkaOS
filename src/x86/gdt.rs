@@ -154,7 +154,7 @@ pub fn load_gdt() {
     }
 }
 
-pub unsafe  fn get_cs() -> u16 {
+pub unsafe fn get_cs() -> u16 {
     let cs: u16;
 
     asm!("MOV {segment:x}, cs", segment = out(reg) cs,  options(nomem, nostack, preserves_flags));

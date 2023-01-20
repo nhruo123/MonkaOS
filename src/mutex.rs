@@ -1,6 +1,7 @@
 use core::{
     cell::UnsafeCell,
-    sync::atomic::{AtomicBool, Ordering}, hint,
+    hint,
+    sync::atomic::{AtomicBool, Ordering},
 };
 
 pub struct Mutex<T> {

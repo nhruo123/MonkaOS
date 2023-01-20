@@ -1,11 +1,13 @@
 {
-    "rust-analyzer.checkOnSave.allTargets": false,
-    "cSpell.words": [
-        "Acpi",
-        "multiboot"
-    ],
-    "lldb.displayFormat": "auto",
-    "lldb.showDisassembly": "always",
-    "lldb.dereferencePointers": true,
-    "lldb.consoleMode": "commands"
+  // "rust-analyzer.check.allTargets": false,
+  "rust-analyzer.cargo.target": "i386-unknown-none.json",
+
+  "cSpell.words": ["Acpi", "multiboot"],
+
+  "lldb.displayFormat": "auto",
+  "lldb.showDisassembly": "auto",
+  "lldb.dereferencePointers": true,
+  "lldb.consoleMode": "commands",
+
+  "debug.onTaskErrors": "debugAnyway"
 }

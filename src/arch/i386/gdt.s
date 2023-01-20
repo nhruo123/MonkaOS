@@ -4,9 +4,10 @@ inner_load_gdt:
     mov eax, [esp + 4]
     lgdt [eax]
 
-    mov ax, [esp + 8]
-    ; TODO: FIX STATIC GDT CODE ENTRY
-    jmp 0x8:.reload_gdt
+    mov eax, [esp + 8]
+    push eax
+    push .reload_gdt
+    retf
 
     .reload_gdt:
 
