@@ -9,5 +9,8 @@
   "lldb.dereferencePointers": true,
   "lldb.consoleMode": "commands",
 
-  "debug.onTaskErrors": "debugAnyway"
+  "debug.onTaskErrors": "debugAnyway",
+  "files.watcherExclude": {
+    "**/target": true
+  }
 }

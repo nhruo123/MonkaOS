@@ -1,5 +1,8 @@
+use core::arch::asm;
+
 use modular_bitfield::BitfieldSpecifier;
 
+pub mod cpu_flags;
 pub mod gdt;
 pub mod interrupts;
 pub mod io;
@@ -18,4 +21,16 @@ pub enum PrivilegeLevel {
 pub struct TableDescriptor {
     size: u16,
     offset: u32,
+}
+
+pub unsafe fn hlt() {
+    asm!("hlt");
+}
+
+pub fn hlt_loop() -> ! {
+    loop {
+        unsafe {
+            hlt();
+        }
+    }
 }

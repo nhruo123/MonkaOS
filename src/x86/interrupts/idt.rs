@@ -1,4 +1,11 @@
-use core::{arch::asm, borrow::BorrowMut, marker::PhantomData, mem::size_of, ops::DerefMut};
+use core::{
+    arch::asm,
+    borrow::BorrowMut,
+    fmt::Debug,
+    marker::PhantomData,
+    mem::size_of,
+    ops::{DerefMut, Index, IndexMut},
+};
 
 use lazy_static::lazy_static;
 use modular_bitfield::{
@@ -12,11 +19,16 @@ use crate::{
     println,
     x86::{
         gdt::{self, SegmentSelector},
+        interrupts::handlers::{
+            double_fault_handler, general_protection_fault_fault_handler,
+            generic_exception_handler, generic_interrupt_handler, keyboard_interrupt_handler,
+            timer_interrupt_handler,
+        },
         PrivilegeLevel, TableDescriptor,
     },
 };
 
-use super::{generic_interrupt_handler, ExceptionHandler, InterruptHandler};
+use super::{ExceptionHandler, InterruptHandler, PciInterruptIndex};
 
 // this is taken from https://docs.rs/x86_64/latest/src/x86_64/structures/idt.rs.html#10-635
 // this seems like a very clean solution to our problem
@@ -56,6 +68,17 @@ pub struct IDTEntry<F> {
     flags: IDTEntryFlags,
     higher_half_offset: u16,
     _phantom: PhantomData<F>,
+}
+
+impl<F> Debug for IDTEntry<F> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("IDTEntry")
+            .field("lower_half_offset", &self.lower_half_offset)
+            .field("higher_half_offset", &self.higher_half_offset)
+            .field("segment_selector", &self.segment_selector)
+            .field("present", &self.flags.present())
+            .finish()
+    }
 }
 
 impl<F> IDTEntry<F> {
@@ -161,12 +184,35 @@ impl InterruptDescriptorTable {
     }
 }
 
+impl Index<u8> for InterruptDescriptorTable {
+    type Output = IDTEntry<InterruptHandler>;
+
+    fn index(&self, index: u8) -> &Self::Output {
+        let index = (index as usize) - 32;
+        &self.interrupts[index]
+    }
+}
+
+impl IndexMut<u8> for InterruptDescriptorTable {
+    fn index_mut(&mut self, index: u8) -> &mut Self::Output {
+        let index = (index as usize) - 32;
+        &mut self.interrupts[index]
+    }
+}
+
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
 
         idt.breakpoint.set_handler_fn(generic_interrupt_handler);
+        idt.double_fault.set_handler_fn(double_fault_handler);
         idt.division_error.set_handler_fn(generic_interrupt_handler);
+        idt.general_protection_fault
+            .set_handler_fn(general_protection_fault_fault_handler);
+
+        idt[PciInterruptIndex::Timer as u8].set_handler_fn(timer_interrupt_handler);
+
+        idt[PciInterruptIndex::Keyboard as u8].set_handler_fn(keyboard_interrupt_handler);
 
         idt
     };

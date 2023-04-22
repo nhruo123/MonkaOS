@@ -1,43 +1,25 @@
+use core::arch::asm;
+
 use modular_bitfield::{
     bitfield,
     specifiers::{B1, B8},
 };
 
-use crate::println;
+use crate::{print, println, x86::interrupts::pic_8259::PIC};
 
-use super::PrivilegeLevel;
+use self::pic_8259::MASTER_INTERRUPT_OFFSET;
+
+use super::{cpu_flags::CpuFlags, PrivilegeLevel};
 
 pub mod idt;
+pub mod pic_8259;
+pub mod handlers;
 
-// https://en.wikipedia.org/wiki/FLAGS_register
-#[bitfield]
-#[derive(Clone, Copy, Debug)]
-#[repr(C, packed)]
-pub struct CPUFlags {
-    carry: bool,
-    _reserved_1: B1,
-    parity: bool,
-    _reserved_2: B1,
-    adjust: bool,
-    _reserved_3: B1,
-    zero: bool,
-    sign: bool,
-    trap: bool,
-    interrupt_enabled: bool,
-    direction: bool,
-    overflow: bool,
-    io_privilege_level: PrivilegeLevel,
-    nested_task: bool,
-    mode: bool,
-    resume: bool,
-    virtual_8086_mode: bool,
-    smap_access_check: bool,
-    virtual_interrupt: bool,
-    virtual_interrupt_pending: bool,
-    cpuid_usable: bool,
-    _reserved_4: B8,
-    aes_key_schedual_loaded: bool,
-    _reserved_5: B1,
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum PciInterruptIndex {
+    Timer = MASTER_INTERRUPT_OFFSET,
+    Keyboard = MASTER_INTERRUPT_OFFSET + 1,
 }
 
 #[repr(C, packed)]
@@ -45,7 +27,7 @@ pub struct CPUFlags {
 pub struct InterruptStackFrame {
     instruction_pointer: usize,
     code_segment: usize,
-    cpu_flags: CPUFlags,
+    cpu_flags: CpuFlags,
     stack_pointer: usize,
     stack_segment: usize,
 }
@@ -56,22 +38,10 @@ pub type ExceptionHandler =
 pub type InterruptHandler =
     extern "x86-interrupt" fn(interrupt_stack_frame: &mut InterruptStackFrame);
 
-extern "x86-interrupt" fn generic_exception_handler(
-    interrupt_stack_frame: &mut InterruptStackFrame,
-    error_code: usize,
-) {
-    println!(
-        "EXCEPTION!!! interrupt_stack_frame: ${:#X?}, error_code: {:#X?}",
-        interrupt_stack_frame, error_code
-    )
+pub unsafe fn enable_interrupt() {
+    asm!("sti");
 }
-extern "x86-interrupt" fn generic_interrupt_handler(
-    interrupt_stack_frame: &mut InterruptStackFrame,
-) {
-    println!(
-        "INTERRUPT!!! interrupt_stack_frame: ${:#X?}",
-        interrupt_stack_frame
-    );
 
-    loop {}
+pub unsafe fn disable_interrupt() {
+    asm!("cli");
 }

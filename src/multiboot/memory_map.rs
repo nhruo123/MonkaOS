@@ -18,7 +18,7 @@ pub struct MemoryMapEntry {
     pub base_addr: u64,
     pub length: u64,
     pub memory_type: MemoryEntryType,
-    _reserved: u32,
+    __: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

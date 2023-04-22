@@ -15,7 +15,7 @@ use super::{PrivilegeLevel, TableDescriptor};
 #[repr(C, packed)]
 pub struct GDTEntryFlags {
     limit_high: B4,
-    reserved: B1,
+    #[skip] __: B1,
     long_mode: B1,
     size: B1,
     granularity: B1,

@@ -15,7 +15,7 @@ pub struct MultiBootInfo {
 #[repr(C)]
 struct MultiBootInfoInner {
     total_size: u32,
-    _reserved: u32,
+    __: u32,
 }
 
 impl MultiBootInfo {
