@@ -32,6 +32,7 @@ mod mutex;
 mod pci;
 mod vga_buffer;
 mod x86;
+mod drivers;
 
 #[no_mangle]
 pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {

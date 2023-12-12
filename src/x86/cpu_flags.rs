@@ -38,7 +38,7 @@ pub struct CpuFlags {
     pub cpuid_usable: bool,
     #[skip]
     __: B8,
-    pub aes_key_schedual_loaded: bool,
+    pub aes_key_schedule_loaded: bool,
     #[skip]
     __: B1,
 }
