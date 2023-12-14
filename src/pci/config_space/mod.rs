@@ -86,6 +86,8 @@ impl_access_at_offset!(u32);
 pub struct PciConfigSpace {
     bus_index: u8,
     device_index: u8,
+    pub vendor_id: u16,
+    pub device_id: u16,
     pub base_address_registers: Vec<BaseAddressRegister>,
 }
 
@@ -94,6 +96,8 @@ impl PciConfigSpace {
         let mut config_space = Self {
             bus_index,
             device_index,
+            device_id: 0,
+            vendor_id: 0,
             base_address_registers: Vec::new(),
         };
 
@@ -101,6 +105,14 @@ impl PciConfigSpace {
             && config_space.get_vendor_id() != PCI_INVALID_VENDOR
         {
             config_space.init_bar();
+
+            let mut new_config_space = config_space.get_command_register();
+            new_config_space.set(CommandRegister::BUS_MASTER, true);
+            config_space.set_command_register(new_config_space);
+
+            config_space.vendor_id = config_space.get_vendor_id();
+            config_space.device_id = config_space.get_device_id();
+
             Some(config_space)
         } else {
             None
@@ -190,8 +202,8 @@ impl core::fmt::Debug for PciConfigSpace {
         f.debug_struct("PciConfigSpace")
             .field("bus_index", &self.bus_index)
             .field("device_index", &self.device_index)
-            .field("vendor_id", &self.get_vendor_id())
-            .field("device_id", &self.get_device_id())
+            .field("vendor_id", &self.vendor_id)
+            .field("device_id", &self.device_id)
             .field("base_address_registers", &self.base_address_registers)
             .finish()
     }

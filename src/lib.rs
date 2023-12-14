@@ -14,7 +14,7 @@ use core::{mem::size_of, panic::PanicInfo};
 use crate::{
     memory::physical::{buddy_allocator::buddy_allocator::BuddyAllocator, global_alloc::ALLOCATOR},
     multiboot::{memory_map::MemoryEntryType, MultiBootInfo},
-    pci::check_pci_buses,
+    pci::{check_pci_buses, drivers::PCI_DRIVERS},
     x86::{
         gdt::load_gdt,
         hlt_loop,
@@ -32,7 +32,6 @@ mod mutex;
 mod pci;
 mod vga_buffer;
 mod x86;
-mod drivers;
 
 #[no_mangle]
 pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
@@ -67,7 +66,13 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
     let mut pci_devices = check_pci_buses();
 
     for device in &mut pci_devices {
-        println!("{:#x?}", device);
+        if let Some(device_driver) = PCI_DRIVERS.iter().find(|driver_entry| {
+            driver_entry.device_id == device.device_id && driver_entry.vendor_id == device.vendor_id
+        }) {
+            (device_driver.init_device)(device);
+        } else {
+            println!("Found unknown device:\n{:#x?}", device);
+        }
     }
 
     {

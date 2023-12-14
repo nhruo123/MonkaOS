@@ -19,6 +19,7 @@ use crate::{
 use self::config_space::PciConfigSpace;
 
 pub mod config_space;
+pub mod drivers;
 
 const PCI_CONFIG_ADDRESS: u16 = 0xCF8;
 const PCI_CONFIG_DATA: u16 = 0xCFC;

@@ -22,12 +22,13 @@ pub enum BaseAddressRegister {
 
 impl PciConfigSpace {
     // we can only set address values so when we read back we will negate them and get the size
-    //https://www.ics.uci.edu/~harris/ics216/pci/PCI_22.pdf page 224 for more info
+    // https://www.ics.uci.edu/~harris/ics216/pci/PCI_22.pdf page 224 for more info
     pub(super) fn init_bar(&mut self) {
         let mut command_register = self.get_command_register();
         command_register.set(CommandRegister::IO_SPACE, false);
         command_register.set(CommandRegister::MEMORY_SPACE, false);
         self.set_command_register(command_register.clone());
+        
 
         for mut register_index in 0..BASE_ADDRESS_REGISTERS_COUNT {
             let original_register_value = self.get_base_address_register(register_index);
