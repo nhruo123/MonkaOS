@@ -7,17 +7,24 @@ const BASE_ADDRESS_REGISTERS_PREFETCHABLE_MASK: u32 = 0b1 << 3;
 const BASE_ADDRESS_REGISTERS_IO_SIZE_MASK: u32 = !0b11;
 const BASE_ADDRESS_REGISTERS_MEMORY_SIZE_MASK: u32 = !0b1111;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
+pub struct IoSpace {
+    pub start_ptr: *const u8,
+    pub size: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MemorySpace {
+    pub start_ptr: *const u8,
+    pub size: usize,
+    pub prefetchable: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum BaseAddressRegister {
-    IoSpace {
-        start_ptr: *const u8,
-        size: usize,
-    },
-    MemorySpace {
-        prefetchable: bool,
-        start_ptr: *const u8,
-        size: usize,
-    },
+    IoSpace(IoSpace),
+    MemorySpace(MemorySpace),
+    EmptyEntry,
 }
 
 impl PciConfigSpace {
@@ -28,7 +35,6 @@ impl PciConfigSpace {
         command_register.set(CommandRegister::IO_SPACE, false);
         command_register.set(CommandRegister::MEMORY_SPACE, false);
         self.set_command_register(command_register.clone());
-        
 
         for mut register_index in 0..BASE_ADDRESS_REGISTERS_COUNT {
             let original_register_value = self.get_base_address_register(register_index);
@@ -60,7 +66,7 @@ impl PciConfigSpace {
         self.set_command_register(command_register);
     }
 
-    fn parse_io_space_bar(&mut self, register_index: u8, original_register_value: u32) {
+    fn parse_io_space_bar(&mut self, register_index: usize, original_register_value: u32) {
         self.set_base_address_register(register_index, u32::MAX);
 
         let (size, overflow) = (!(self.get_base_address_register(register_index)
@@ -71,15 +77,13 @@ impl PciConfigSpace {
             return;
         }
 
-        self.base_address_registers
-            .push(BaseAddressRegister::IoSpace {
-                start_ptr: (original_register_value & BASE_ADDRESS_REGISTERS_IO_SIZE_MASK)
-                    as *const u8,
-                size: size as usize,
-            });
+        self.base_address_registers[register_index] = BaseAddressRegister::IoSpace(IoSpace {
+            start_ptr: (original_register_value & BASE_ADDRESS_REGISTERS_IO_SIZE_MASK) as *const u8,
+            size: size as usize,
+        })
     }
 
-    fn parse_32bit_mmio_space_bar(&mut self, register_index: u8, original_register_value: u32) {
+    fn parse_32bit_mmio_space_bar(&mut self, register_index: usize, original_register_value: u32) {
         self.set_base_address_register(register_index, u32::MAX);
 
         let (size, overflow) = (!(self.get_base_address_register(register_index)
@@ -90,8 +94,8 @@ impl PciConfigSpace {
             return;
         }
 
-        self.base_address_registers
-            .push(BaseAddressRegister::MemorySpace {
+        self.base_address_registers[register_index] =
+            BaseAddressRegister::MemorySpace(MemorySpace {
                 prefetchable: original_register_value & BASE_ADDRESS_REGISTERS_PREFETCHABLE_MASK
                     != 0,
                 start_ptr: (original_register_value & BASE_ADDRESS_REGISTERS_MEMORY_SIZE_MASK)
@@ -100,7 +104,7 @@ impl PciConfigSpace {
             });
     }
 
-    fn parse_64bit_mmio_space_bar(&mut self, register_index: u8, original_register_value: u32) {
+    fn parse_64bit_mmio_space_bar(&mut self, register_index: usize, original_register_value: u32) {
         let original_second_register_contents = self.get_base_address_register(register_index + 1);
 
         self.set_base_address_register(register_index, u32::MAX);
@@ -119,8 +123,8 @@ impl PciConfigSpace {
             return;
         }
 
-        self.base_address_registers
-            .push(BaseAddressRegister::MemorySpace {
+        self.base_address_registers[register_index] =
+            BaseAddressRegister::MemorySpace(MemorySpace {
                 prefetchable: original_register_value & BASE_ADDRESS_REGISTERS_PREFETCHABLE_MASK
                     != 0,
                 start_ptr: (original_register_value & BASE_ADDRESS_REGISTERS_MEMORY_SIZE_MASK)

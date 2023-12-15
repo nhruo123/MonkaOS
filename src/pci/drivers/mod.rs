@@ -4,6 +4,10 @@ use super::config_space::PciConfigSpace;
 
 mod network;
 
+enum DriverError {
+       
+}
+
 pub type PciInitFunction = fn(&mut PciConfigSpace) -> ();
 
 pub struct PciDriver {

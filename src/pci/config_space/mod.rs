@@ -1,3 +1,5 @@
+use core::{marker::PhantomData, mem::size_of, ptr::{read_volatile, write_volatile}};
+
 use alloc::vec::Vec;
 use bitflags::bitflags;
 use modular_bitfield::bitfield;
@@ -7,12 +9,14 @@ use crate::{
     x86::io::{io_in_u16, io_out_u32},
 };
 
-use base_address_register::BaseAddressRegister;
+pub use base_address_register::BaseAddressRegister;
+
+use self::base_address_register::MemorySpace;
 
 use super::{PCI_CONFIG_ADDRESS, PCI_CONFIG_DATA, PCI_INVALID_VENDOR};
 
-mod base_address_register;
-mod macros;
+pub mod base_address_register;
+pub mod macros;
 const DEVICE_INDEX_RANGE: core::ops::Range<u8> = 0..32;
 
 const BUS_SHIFT: usize = 16;
@@ -32,12 +36,36 @@ const BIST_OFFSET: u32 = 0xF;
 pub const BASE_ADDRESS_REGISTER_OFFSET: u32 = 0x10;
 pub const BASE_ADDRESS_REGISTER_32_BIT_SIZE: u32 = 0x4;
 pub const BASE_ADDRESS_REGISTER_64_BIT_SIZE: u32 = 0x8;
-pub const BASE_ADDRESS_REGISTERS_COUNT: u8 = 6;
+pub const BASE_ADDRESS_REGISTERS_COUNT: usize = 6;
 
 const EXPANSION_ROM_BASE_ADDRESS_OFFSET: u32 = 0x30;
 
 const INTERRUPT_PIN_OFFSET: u32 = 0x3C;
 const INTERRUPT_LINE_OFFSET: u32 = 0x3D;
+
+pub struct MemoryMappedRegister<T> {
+    offset: usize,
+    _pin: PhantomData<T>,
+}
+
+impl<T> MemoryMappedRegister<T> {
+    pub const fn new(offset: usize) -> Self {
+        Self {
+            offset: offset,
+            _pin: PhantomData,
+        }
+    }
+
+    pub unsafe fn read(&self, memory_mapped_space: &MemorySpace) -> T {
+        assert!(self.offset + size_of::<T>() <= memory_mapped_space.size);
+        read_volatile((memory_mapped_space.start_ptr.addr() + self.offset) as *const T)
+    }
+
+    pub unsafe fn write(&self, memory_mapped_space: &mut MemorySpace, item: T){
+        assert!(self.offset + size_of::<T>() <= memory_mapped_space.size);
+        write_volatile((memory_mapped_space.start_ptr.addr() + self.offset) as *mut T, item);
+    }
+}
 
 bitflags! {
     pub struct HeaderType: u8 {
@@ -83,12 +111,13 @@ impl_access_at_offset!(u8);
 impl_access_at_offset!(u16);
 impl_access_at_offset!(u32);
 
+#[derive(Copy, Clone)]
 pub struct PciConfigSpace {
     bus_index: u8,
     device_index: u8,
     pub vendor_id: u16,
     pub device_id: u16,
-    pub base_address_registers: Vec<BaseAddressRegister>,
+    pub base_address_registers: [BaseAddressRegister; BASE_ADDRESS_REGISTERS_COUNT],
 }
 
 impl PciConfigSpace {
@@ -98,7 +127,7 @@ impl PciConfigSpace {
             device_index,
             device_id: 0,
             vendor_id: 0,
-            base_address_registers: Vec::new(),
+            base_address_registers: [BaseAddressRegister::EmptyEntry; BASE_ADDRESS_REGISTERS_COUNT],
         };
 
         if DEVICE_INDEX_RANGE.contains(&device_index)
@@ -171,7 +200,7 @@ impl PciConfigSpace {
         self.read_offset_u8(INTERRUPT_PIN_OFFSET)
     }
 
-    pub fn get_base_address_register(&self, index: u8) -> u32 {
+    pub fn get_base_address_register(&self, index: usize) -> u32 {
         debug_assert!(index < BASE_ADDRESS_REGISTERS_COUNT);
 
         self.read_offset_u32(
@@ -179,7 +208,7 @@ impl PciConfigSpace {
         )
     }
 
-    pub fn set_base_address_register(&self, index: u8, value: u32) {
+    pub fn set_base_address_register(&self, index: usize, value: u32) {
         debug_assert!(index < BASE_ADDRESS_REGISTERS_COUNT);
 
         self.write_offset_u32(
