@@ -46,7 +46,7 @@ pub extern "x86-interrupt" fn general_protection_fault_fault_handler(
 pub extern "x86-interrupt" fn timer_interrupt_handler(
     interrupt_stack_frame: &mut InterruptStackFrame,
 ) {
-    print!(".");
+    // print!(".");
 
     unsafe {
         PIC.lock()
