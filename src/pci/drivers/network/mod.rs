@@ -10,7 +10,7 @@ use alloc::boxed::Box;
 use bitflags::bitflags;
 use modular_bitfield::{
     bitfield,
-    specifiers::{B1, B2, B5, B16, B15},
+    specifiers::{B1, B10, B15, B16, B2, B5, B6},
     BitfieldSpecifier,
 };
 
@@ -29,6 +29,12 @@ use super::PciDriver;
 const DEVICE_CONTROL: MemoryMappedRegister<DeviceControlRegister> =
     MemoryMappedRegister::new(0x0000);
 const DEVICE_STATUS: MemoryMappedRegister<DeviceStatusRegister> = MemoryMappedRegister::new(0x0008);
+
+const TRANSMIT_CONTROL_REGISTER: MemoryMappedRegister<TransmissionControlRegister> =
+    MemoryMappedRegister::new(0x00400);
+const TRANSMIT_IPG_REGISTER: MemoryMappedRegister<TransmissionIpgRegister> =
+    MemoryMappedRegister::new(0x00410);
+
 const TRANSMIT_DESCRIPTOR_BASE_LOW: MemoryMappedRegister<u32> = MemoryMappedRegister::new(0x3800);
 const TRANSMIT_DESCRIPTOR_BASE_HIGH: MemoryMappedRegister<u32> = MemoryMappedRegister::new(0x3804);
 const TRANSMIT_DESCRIPTOR_BASE_LEN: MemoryMappedRegister<u64> = MemoryMappedRegister::new(0x3808);
@@ -124,6 +130,37 @@ pub struct DeviceStatusRegister {
     __: B16,
 }
 
+#[bitfield]
+#[repr(packed, C)]
+#[derive(Debug)]
+pub struct TransmissionControlRegister {
+    #[skip]
+    __: B1,
+    enabled: bool,
+    #[skip]
+    __: B1,
+    pad_short_packets: bool,
+    collision_threshold: u8,
+    collision_distance: B10,
+    SWXOFF: bool,
+    #[skip]
+    __: B1,
+    RTLC: bool,
+    NRTU: bool,
+    #[skip]
+    __: B6,
+}
+
+#[bitfield]
+#[repr(packed, C)]
+#[derive(Debug)]
+pub struct TransmissionIpgRegister {
+    ipgt: B10,
+    ipgr1: B10,
+    ipgr2: B10,
+    #[skip]
+    __: B2,
+}
 
 bitflags! {
     #[derive(Default)]
@@ -148,7 +185,7 @@ bitflags! {
 }
 
 #[derive(Default, Clone, Copy)]
-#[repr(C, align(32))]
+#[repr(C, packed(32))]
 struct TransmissionDescriptor {
     base_address: u64,
     length: u16,
@@ -161,14 +198,16 @@ struct TransmissionDescriptor {
 
 impl TransmissionDescriptor {
     const fn empty() -> Self {
+        let status = unsafe { TransmissionStatusRegister::from_bits_unchecked(1 << 4) };
+
         Self {
             base_address: 0,
-            command: TransmissionCommandRegister::from_bits(0).unwrap(),
+            command: TransmissionCommandRegister::empty(),
             cso: 0,
             length: 0,
             css: 0,
             special: 0,
-            status: TransmissionStatusRegister::from_bits(0).unwrap(),
+            status,
         }
     }
 }
@@ -180,7 +219,7 @@ static mut TRANSMISSION_DESCRIPTOR_LIST: [TransmissionDescriptor;
     [TransmissionDescriptor::empty(); TRANSMISSION_DESCRIPTOR_LIST_SIZE];
 
 pub fn init_e1000(pci: &mut PciConfigSpace) {
-    println!("I found e1000! yay! \n{:#x?}", pci);
+    println!("I found e1000!");
     let BaseAddressRegister::MemorySpace(mut memory_space) = pci.base_address_registers[0] else {
         // TODO: handle errors for now panic
         panic!("Unexpected Base Register type!");
@@ -204,4 +243,56 @@ unsafe fn init_descriptors_list(memory_space: &mut MemorySpace) {
 
     TRANSMIT_DESCRIPTOR_BASE_HEAD.write(memory_space, 0);
     TRANSMIT_DESCRIPTOR_BASE_TAIL.write(memory_space, 0);
+
+    TRANSMIT_CONTROL_REGISTER.write(
+        memory_space,
+        TransmissionControlRegister::new()
+            .with_enabled(true)
+            .with_pad_short_packets(true)
+            .with_collision_threshold(0x10)
+            .with_collision_distance_checked(0x200)
+            .unwrap(),
+    );
+
+    TRANSMIT_IPG_REGISTER.write(
+        memory_space,
+        TransmissionIpgRegister::new()
+            .with_ipgt(10)
+            .with_ipgr1(8)
+            .with_ipgr2(6),
+    );
+
+    transmit_packet("Hello World, This is MonkaOs's e1000 driver!".as_bytes(), memory_space);
+}
+
+// TODO: handle errors
+unsafe fn transmit_packet(data: &[u8], memory_space: &mut MemorySpace) {
+    let tail = TRANSMIT_DESCRIPTOR_BASE_TAIL.read(memory_space);
+    let head = TRANSMIT_DESCRIPTOR_BASE_HEAD.read(memory_space);
+    println!("TRANSMIT_DESCRIPTOR_BASE_HEAD before: {:?}", head);
+
+    let current_descriptor = &mut TRANSMISSION_DESCRIPTOR_LIST[tail as usize];
+
+    assert!(current_descriptor
+        .status
+        .contains(TransmissionStatusRegister::DESCRIPTOR_DONE));
+
+    assert!(data.len() <= u16::MAX as usize);
+
+    current_descriptor.status.remove(TransmissionStatusRegister::DESCRIPTOR_DONE);
+    current_descriptor.base_address = (data as *const [u8]).addr() as u64;
+    current_descriptor.length = data.len() as u16;
+    current_descriptor
+        .command
+        .insert(TransmissionCommandRegister::END_OF_PACKET);
+
+    TRANSMIT_DESCRIPTOR_BASE_TAIL.write(
+        memory_space,
+        (tail + 1) % TRANSMISSION_DESCRIPTOR_LIST_SIZE as u64,
+    );
+
+    println!(
+        "TRANSMIT_DESCRIPTOR_BASE_HEAD after: {:?}",
+        TRANSMIT_DESCRIPTOR_BASE_HEAD.read(memory_space)
+    )
 }

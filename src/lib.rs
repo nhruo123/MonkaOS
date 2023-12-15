@@ -74,7 +74,10 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
         }) {
             (device_driver.init_device)(device);
         } else {
-            println!("Found unknown device:\n{:#x?}", device);
+            println!(
+                "Found unknown device, vendor_id:{:#x}, device_id:{:#x}",
+                device.vendor_id, device.device_id
+            );
         }
     }
 
