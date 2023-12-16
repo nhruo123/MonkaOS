@@ -1,31 +1,23 @@
+#![allow(dead_code)]
+
 use core::{
     arch::asm,
-    borrow::BorrowMut,
     fmt::Debug,
     marker::PhantomData,
     mem::size_of,
-    ops::{DerefMut, Index, IndexMut},
+    ops::{Index, IndexMut},
 };
 
 use lazy_static::lazy_static;
-use modular_bitfield::{
-    bitfield,
-    specifiers::{B1, B2, B4},
-    BitfieldSpecifier,
-};
+use modular_bitfield::{bitfield, specifiers::B1, BitfieldSpecifier};
 
-use crate::{
-    mutex::Mutex,
-    println,
-    x86::{
-        gdt::{self, SegmentSelector},
-        interrupts::handlers::{
-            double_fault_handler, general_protection_fault_fault_handler,
-            generic_exception_handler, generic_interrupt_handler, keyboard_interrupt_handler,
-            timer_interrupt_handler,
-        },
-        PrivilegeLevel, TableDescriptor,
+use crate::x86::{
+    gdt::{self, SegmentSelector},
+    interrupts::handlers::{
+        double_fault_handler, general_protection_fault_fault_handler, generic_interrupt_handler,
+        keyboard_interrupt_handler, timer_interrupt_handler,
     },
+    PrivilegeLevel, TableDescriptor,
 };
 
 use super::{ExceptionHandler, InterruptHandler, PciInterruptIndex};

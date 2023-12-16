@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::memory::physical::{
     inline_free_list::InlineFreeList, AllocatorError, PhysicalMemoryAllocator, PhysicalMemoryBlock,
     Result,

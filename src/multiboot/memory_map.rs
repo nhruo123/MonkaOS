@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use core::{marker::PhantomData, mem::size_of};
 
 use super::tags::TagType;

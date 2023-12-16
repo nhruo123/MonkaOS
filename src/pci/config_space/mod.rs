@@ -1,13 +1,14 @@
-use core::{marker::PhantomData, mem::size_of, ptr::{read_volatile, write_volatile}};
+#![allow(dead_code)]
 
-use alloc::vec::Vec;
-use bitflags::bitflags;
-use modular_bitfield::bitfield;
-
-use crate::{
-    impl_access_at_offset,
-    x86::io::{io_in_u16, io_out_u32},
+use core::{
+    marker::PhantomData,
+    mem::size_of,
+    ptr::{read_volatile, write_volatile},
 };
+
+use bitflags::bitflags;
+
+use crate::impl_access_at_offset;
 
 pub use base_address_register::BaseAddressRegister;
 
@@ -61,9 +62,12 @@ impl<T> MemoryMappedRegister<T> {
         read_volatile((memory_mapped_space.start_ptr.addr() + self.offset) as *const T)
     }
 
-    pub unsafe fn write(&self, memory_mapped_space: &mut MemorySpace, item: T){
+    pub unsafe fn write(&self, memory_mapped_space: &mut MemorySpace, item: T) {
         assert!(self.offset + size_of::<T>() <= memory_mapped_space.size);
-        write_volatile((memory_mapped_space.start_ptr.addr() + self.offset) as *mut T, item);
+        write_volatile(
+            (memory_mapped_space.start_ptr.addr() + self.offset) as *mut T,
+            item,
+        );
     }
 }
 

@@ -1,10 +1,11 @@
 use crate::{
     print, println,
-    x86::interrupts::{enable_interrupt, pic_8259::PIC, PciInterruptIndex},
+    x86::interrupts::{pic_8259::PIC, PciInterruptIndex},
 };
 
 use super::InterruptStackFrame;
 
+#[allow(dead_code)]
 pub extern "x86-interrupt" fn generic_exception_handler(
     interrupt_stack_frame: &mut InterruptStackFrame,
     error_code: usize,
@@ -44,7 +45,7 @@ pub extern "x86-interrupt" fn general_protection_fault_fault_handler(
 }
 
 pub extern "x86-interrupt" fn timer_interrupt_handler(
-    interrupt_stack_frame: &mut InterruptStackFrame,
+    _interrupt_stack_frame: &mut InterruptStackFrame,
 ) {
     // print!(".");
 
@@ -55,7 +56,7 @@ pub extern "x86-interrupt" fn timer_interrupt_handler(
 }
 
 pub extern "x86-interrupt" fn keyboard_interrupt_handler(
-    interrupt_stack_frame: &mut InterruptStackFrame,
+    _interrupt_stack_frame: &mut InterruptStackFrame,
 ) {
     print!("~");
 

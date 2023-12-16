@@ -74,7 +74,7 @@ impl Pics {
     pub unsafe fn init(&mut self) {
         let master_mask = self.master.read_mask();
         let slave_mask = self.slave.read_mask();
-        
+
         let io_wait = || io_out_u8(IO_WAIT_WRITE_ADDRESS, 0);
 
         io_out_u8(self.master.command_address, INIT_COMMAND);
@@ -109,5 +109,4 @@ impl Pics {
         self.master.end_of_interrupt(interrupt_id);
         self.slave.end_of_interrupt(interrupt_id);
     }
-
 }

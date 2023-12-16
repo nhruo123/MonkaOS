@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use core::{
     cell::UnsafeCell,
     hint,
@@ -5,7 +7,7 @@ use core::{
 };
 
 use crate::x86::{
-    cpu_flags::{get_cpu_flags, set_specific_cpu_flags, CpuFlags},
+    cpu_flags::get_cpu_flags,
     interrupts::{disable_interrupt, enable_interrupt},
 };
 

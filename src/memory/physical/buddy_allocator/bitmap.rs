@@ -1,5 +1,3 @@
-use core::ops::Add;
-
 pub struct BitMap {
     inner_array: *mut u8,
     byte_count: usize,

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use core::{arch::asm, fmt::Debug};
 
 use modular_bitfield::{

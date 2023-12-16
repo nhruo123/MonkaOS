@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use core::{arch::asm, mem::size_of};
 
 use lazy_static::lazy_static;
@@ -5,7 +7,7 @@ use lazy_static::lazy_static;
 // read here for info: https://wiki.osdev.org/GDT
 use modular_bitfield::{
     bitfield,
-    specifiers::{B1, B13, B2, B4},
+    specifiers::{B1, B13, B4},
 };
 
 use super::{PrivilegeLevel, TableDescriptor};
@@ -15,7 +17,8 @@ use super::{PrivilegeLevel, TableDescriptor};
 #[repr(C, packed)]
 pub struct GDTEntryFlags {
     limit_high: B4,
-    #[skip] __: B1,
+    #[skip]
+    __: B1,
     long_mode: B1,
     size: B1,
     granularity: B1,
@@ -94,14 +97,14 @@ impl GDTEntry {
     }
 
     pub fn code_segment() -> Self {
-        let mut access_byte = GDTEntryAccessByte::new()
+        let access_byte = GDTEntryAccessByte::new()
             .with_present(true)
             .with_descriptor_type(1)
             .with_executable(1)
             .with_direction(1)
             .with_read_write(1);
 
-        let mut flags = GDTEntryFlags::new()
+        let flags = GDTEntryFlags::new()
             .with_granularity(1)
             .with_long_mode(0)
             .with_size(1);
@@ -110,14 +113,14 @@ impl GDTEntry {
     }
 
     pub fn data_segment() -> Self {
-        let mut access_byte = GDTEntryAccessByte::new()
+        let access_byte = GDTEntryAccessByte::new()
             .with_present(true)
             .with_descriptor_type(1)
             .with_executable(0)
             .with_direction(0)
             .with_read_write(1);
 
-        let mut flags = GDTEntryFlags::new()
+        let flags = GDTEntryFlags::new()
             .with_granularity(1)
             .with_long_mode(0)
             .with_size(1);

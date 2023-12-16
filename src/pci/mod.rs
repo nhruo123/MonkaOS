@@ -6,15 +6,6 @@
 */
 
 use alloc::vec::Vec;
-use modular_bitfield::{
-    bitfield,
-    specifiers::{B2, B5, B6},
-};
-
-use crate::{
-    println,
-    x86::io::{io_in_u16, io_in_u32, io_out_u32},
-};
 
 use self::config_space::PciConfigSpace;
 

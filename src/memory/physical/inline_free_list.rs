@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use core::{marker::PhantomData, ptr::NonNull};
 
 // This is a free list that lives inside the memory it reports about

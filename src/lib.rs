@@ -1,31 +1,21 @@
-#![crate_type = "staticlib"]
-#![feature(lang_items)]
 #![no_std]
-#![no_builtins]
 #![feature(strict_provenance)]
-#![feature(const_trait_impl)]
-#![feature(const_option)]
 #![feature(abi_x86_interrupt)]
-#![feature(default_alloc_error_handler)]
-#![feature(core_intrinsics)]
+#![feature(error_in_core)]
 
 extern crate alloc;
 extern crate bitflags;
 
-use core::{mem::size_of, panic::PanicInfo};
+use core::panic::PanicInfo;
 
 use crate::{
     memory::physical::{buddy_allocator::buddy_allocator::BuddyAllocator, global_alloc::ALLOCATOR},
     multiboot::{memory_map::MemoryEntryType, MultiBootInfo},
-    pci::{check_pci_buses, drivers::PCI_DRIVERS},
+    pci::{check_pci_buses, drivers::{PCI_DRIVERS, network::NETWORK_DRIVER}},
     x86::{
         gdt::load_gdt,
         hlt_loop,
-        interrupts::{
-            enable_interrupt,
-            idt::{load_idt, InterruptDescriptorTable},
-            pic_8259::PIC,
-        },
+        interrupts::{enable_interrupt, idt::load_idt, pic_8259::PIC},
     },
 };
 
@@ -72,7 +62,7 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
         if let Some(device_driver) = PCI_DRIVERS.iter().find(|driver_entry| {
             driver_entry.device_id == device.device_id && driver_entry.vendor_id == device.vendor_id
         }) {
-            (device_driver.init_device)(device);
+            (device_driver.init_device)(device).unwrap();
         } else {
             println!(
                 "Found unknown device, vendor_id:{:#x}, device_id:{:#x}",
@@ -80,7 +70,6 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
             );
         }
     }
-
     {
         unsafe {
             PIC.lock().init();
@@ -88,6 +77,12 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
             PIC.lock().slave.write_mask(0xFF);
             enable_interrupt();
         };
+    }
+    
+    {
+        unsafe {
+            NETWORK_DRIVER.lock().as_mut().unwrap().transmit_packet("Hello world".as_bytes(), true).unwrap();
+        }
     }
     println!("hello form the other side!");
     hlt_loop();

@@ -1,19 +1,12 @@
 use core::arch::asm;
 
-use modular_bitfield::{
-    bitfield,
-    specifiers::{B1, B8},
-};
-
-use crate::{print, println, x86::interrupts::pic_8259::PIC};
-
 use self::pic_8259::MASTER_INTERRUPT_OFFSET;
 
-use super::{cpu_flags::CpuFlags, PrivilegeLevel};
+use super::cpu_flags::CpuFlags;
 
+pub mod handlers;
 pub mod idt;
 pub mod pic_8259;
-pub mod handlers;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]

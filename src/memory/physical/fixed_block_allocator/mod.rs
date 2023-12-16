@@ -1,9 +1,6 @@
-use core::{alloc::Layout, mem::MaybeUninit};
-
 use super::{
-    buddy_allocator::{self, buddy_allocator::BuddyAllocator},
-    inline_free_list::InlineFreeList,
-    AllocatorError, PhysicalMemoryAllocator, PhysicalMemoryBlock, Result,
+    buddy_allocator::buddy_allocator::BuddyAllocator, inline_free_list::InlineFreeList,
+    AllocatorError, PhysicalMemoryBlock, Result,
 };
 
 const BLOCK_SIZES: &[usize] = &[8, 16, 32, 64, 128, 256, 512, 1024];
