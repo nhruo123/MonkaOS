@@ -4,7 +4,7 @@ use crate::pci::config_space::MemoryMappedRegister;
 use bitflags::bitflags;
 use modular_bitfield::{
     bitfield,
-    specifiers::{B1, B10, B16, B2, B5, B6},
+    specifiers::{B1, B10, B15, B16, B2, B5, B6},
     BitfieldSpecifier,
 };
 
@@ -94,6 +94,33 @@ pub struct DeviceStatusRegister {
 #[bitfield]
 #[repr(packed, C)]
 #[derive(Debug)]
+pub struct InterruptMaskRegister {
+    pub transmit_descriptor_written_back: bool,
+    pub transmit_queue_empty: bool,
+    pub link_status_change: bool,
+    pub rxseq: bool,
+    pub rxdmt0: bool,
+    #[skip]
+    __: B1,
+    pub receiver_fifo_overrun: bool,
+    pub receiver_timer_interrupt: bool,
+    #[skip]
+    __: B1,
+    pub mdac: bool,
+    pub rxcfg: bool,
+    #[skip]
+    __: B1,
+    pub phyint: bool,
+    pub gpi: B2,
+    pub transmit_descriptor_low_threshold_hit: bool,
+    pub srpd: bool,
+    #[skip]
+    __: B15,
+}
+
+#[bitfield]
+#[repr(packed, C)]
+#[derive(Debug)]
 pub struct TransmissionControlRegister {
     #[skip]
     __: B1,
@@ -175,6 +202,9 @@ pub const DEVICE_CONTROL: MemoryMappedRegister<DeviceControlRegister> =
     MemoryMappedRegister::new(0x0000);
 pub const DEVICE_STATUS: MemoryMappedRegister<DeviceStatusRegister> =
     MemoryMappedRegister::new(0x0008);
+
+pub const INTERRUPT_MASK: MemoryMappedRegister<InterruptMaskRegister> =
+    MemoryMappedRegister::new(0x000D0);
 
 pub const TRANSMIT_CONTROL_REGISTER: MemoryMappedRegister<TransmissionControlRegister> =
     MemoryMappedRegister::new(0x00400);

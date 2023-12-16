@@ -1,6 +1,6 @@
 // https://pdos.csail.mit.edu/6.828/2011/readings/hardware/8254x_GBe_SDM.pdf
 
-use core::{mem::size_of, arch::asm};
+use core::{arch::asm, mem::size_of};
 
 use thiserror::Error;
 
@@ -14,10 +14,10 @@ use crate::{
 };
 
 use self::registers::{
-    TransmissionControlRegister, TransmissionDescriptor, TransmissionIpgRegister,
-    TRANSMIT_CONTROL_REGISTER, TRANSMIT_DESCRIPTOR_BASE_HEAD, TRANSMIT_DESCRIPTOR_BASE_HIGH,
-    TRANSMIT_DESCRIPTOR_BASE_LEN, TRANSMIT_DESCRIPTOR_BASE_LOW, TRANSMIT_DESCRIPTOR_BASE_TAIL,
-    TRANSMIT_IPG_REGISTER,
+    InterruptMaskRegister, TransmissionControlRegister, TransmissionDescriptor,
+    TransmissionIpgRegister, INTERRUPT_MASK, TRANSMIT_CONTROL_REGISTER,
+    TRANSMIT_DESCRIPTOR_BASE_HEAD, TRANSMIT_DESCRIPTOR_BASE_HIGH, TRANSMIT_DESCRIPTOR_BASE_LEN,
+    TRANSMIT_DESCRIPTOR_BASE_LOW, TRANSMIT_DESCRIPTOR_BASE_TAIL, TRANSMIT_IPG_REGISTER,
 };
 
 use super::{DriverError, PciDriver};
@@ -55,7 +55,7 @@ static mut TRANSMISSION_DESCRIPTOR_LIST: [TransmissionDescriptor;
     [TransmissionDescriptor::empty(); TRANSMISSION_DESCRIPTOR_LIST_SIZE];
 
 pub fn init_e1000(pci: &mut PciConfigSpace) -> core::result::Result<(), DriverError> {
-    println!("Found e1000, initializing network card...");
+    println!("Found e1000, initializing network card..., get_interrupt_line: {}, get_interrupt_pin: {}", pci.get_interrupt_line(), pci.get_interrupt_pin());
     let BaseAddressRegister::MemorySpace(mut memory_space) = pci.base_address_registers[0] else {
         return Err(DriverError::UnexpectedBaseRegisterLayout {
             register: pci.base_address_registers[0],
@@ -105,6 +105,11 @@ unsafe fn init_descriptors_list(memory_space: &mut MemorySpace) {
             .with_ipgr1(8)
             .with_ipgr2(6),
     );
+
+    INTERRUPT_MASK.write(
+        memory_space,
+        InterruptMaskRegister::new().with_transmit_descriptor_written_back(true),
+    );
 }
 
 impl E1000Driver {
@@ -139,9 +144,9 @@ impl E1000Driver {
         );
 
         // TODO: IDK why but not printing here breaks transmit_packet.
-        // It's not a race condition I looped over 4 million NOPs but still nothing showed in the network dump
+        // It's not a race condition I looped over 4 million NOPs but still nothing showed up in the network dump
         // ╮(╯ _╰ )╭
-        println!("{}", tail);
+        // println!("{}", last_packet);
 
         Ok(())
     }
