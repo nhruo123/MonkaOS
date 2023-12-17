@@ -11,13 +11,16 @@ use core::{
 use lazy_static::lazy_static;
 use modular_bitfield::{bitfield, specifiers::B1, BitfieldSpecifier};
 
-use crate::x86::{
-    gdt::{self, SegmentSelector},
-    interrupts::handlers::{
-        double_fault_handler, general_protection_fault_fault_handler, generic_interrupt_handler,
-        keyboard_interrupt_handler, timer_interrupt_handler,
+use crate::{
+    mutex::Mutex,
+    x86::{
+        gdt::{self, SegmentSelector},
+        interrupts::handlers::{
+            double_fault_handler, general_protection_fault_fault_handler,
+            generic_interrupt_handler, keyboard_interrupt_handler, timer_interrupt_handler,
+        },
+        PrivilegeLevel, TableDescriptor,
     },
-    PrivilegeLevel, TableDescriptor,
 };
 
 use super::{ExceptionHandler, InterruptHandler, PciInterruptIndex};
@@ -193,7 +196,7 @@ impl IndexMut<u8> for InterruptDescriptorTable {
 }
 
 lazy_static! {
-    static ref IDT: InterruptDescriptorTable = {
+    pub static ref IDT: Mutex<InterruptDescriptorTable> = {
         let mut idt = InterruptDescriptorTable::new();
 
         idt.breakpoint.set_handler_fn(generic_interrupt_handler);
@@ -206,7 +209,7 @@ lazy_static! {
 
         idt[PciInterruptIndex::Keyboard as u8].set_handler_fn(keyboard_interrupt_handler);
 
-        idt
+        Mutex::new(idt)
     };
 }
 
@@ -219,7 +222,7 @@ pub fn load_idt() {
     );
 
     let idt_descriptor = TableDescriptor {
-        offset: (&*IDT as *const _) as u32,
+        offset: (unsafe { IDT.get_raw_ptr() } as *const _) as u32,
         size: (size_of::<InterruptDescriptorTable>()) as u16 - 1,
     };
 

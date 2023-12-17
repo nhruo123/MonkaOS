@@ -11,10 +11,13 @@ use core::panic::PanicInfo;
 use crate::{
     memory::physical::{buddy_allocator::buddy_allocator::BuddyAllocator, global_alloc::ALLOCATOR},
     multiboot::{memory_map::MemoryEntryType, MultiBootInfo},
-    pci::{check_pci_buses, drivers::{PCI_DRIVERS, network::NETWORK_DRIVER}},
+    pci::{
+        check_pci_buses,
+        drivers::{network::NETWORK_DRIVER, PCI_DRIVERS},
+    },
     x86::{
         gdt::load_gdt,
-        hlt_loop,
+        hlt, hlt_loop,
         interrupts::{enable_interrupt, idt::load_idt, pic_8259::PIC},
     },
 };
@@ -63,28 +66,45 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
             driver_entry.device_id == device.device_id && driver_entry.vendor_id == device.vendor_id
         }) {
             (device_driver.init_device)(device).unwrap();
+            println!(
+                "Found known device, vendor_id:{:#x}, device_id:{:#x}, class_code: {:?}, header_type: {:?}",
+                device.vendor_id, device.device_id,device.get_class_code(), device.get_header_type(),
+            );
         } else {
             println!(
-                "Found unknown device, vendor_id:{:#x}, device_id:{:#x}",
-                device.vendor_id, device.device_id
+                "Found unknown device, vendor_id:{:#x}, device_id:{:#x}, class_code: {:?}, header_type: {:?}",
+                device.vendor_id, device.device_id,device.get_class_code(), device.get_header_type(),
             );
         }
     }
+
     {
         unsafe {
             PIC.lock().init();
             PIC.lock().master.write_mask(0xFE);
             PIC.lock().slave.write_mask(0xFF);
+
+            // PIC.lock().master.write_mask(0x00);
+            // PIC.lock().slave.write_mask(0x00);
+
             enable_interrupt();
         };
     }
-    
-    {
-        unsafe {
-            NETWORK_DRIVER.lock().as_mut().unwrap().transmit_packet("Hello world".as_bytes(), true).unwrap();
-        }
+
+    unsafe {
+        println!("transmit head at: {}", NETWORK_DRIVER.lock().as_ref().unwrap().get_head());
+        NETWORK_DRIVER
+            .lock()
+            .as_mut()
+            .unwrap()
+            .transmit_packet("Hello world".as_bytes(), true)
+            .unwrap();
+
+        println!("new transmit head at: {}", NETWORK_DRIVER.lock().as_ref().unwrap().get_head())
     }
+
     println!("hello form the other side!");
+
     hlt_loop();
 }
 

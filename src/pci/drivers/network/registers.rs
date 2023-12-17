@@ -173,7 +173,7 @@ bitflags! {
 }
 
 #[derive(Default, Clone, Copy)]
-#[repr(C, packed(32))]
+#[repr(C, packed)]
 pub struct TransmissionDescriptor {
     pub base_address: u64,
     pub length: u16,

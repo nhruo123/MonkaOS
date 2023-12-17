@@ -1,6 +1,9 @@
 use crate::{
     print, println,
-    x86::interrupts::{pic_8259::PIC, PciInterruptIndex},
+    x86::{
+        interrupts::{pic_8259::PIC, PciInterruptIndex},
+        io::io_in_u8,
+    },
 };
 
 use super::InterruptStackFrame;
@@ -58,7 +61,9 @@ pub extern "x86-interrupt" fn timer_interrupt_handler(
 pub extern "x86-interrupt" fn keyboard_interrupt_handler(
     _interrupt_stack_frame: &mut InterruptStackFrame,
 ) {
-    print!("~");
+    let scancode: u8 = unsafe { io_in_u8(0x60) };
+
+    print!("{}", scancode);
 
     unsafe {
         PIC.lock()

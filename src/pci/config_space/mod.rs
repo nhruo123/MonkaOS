@@ -8,7 +8,10 @@ use core::{
 
 use bitflags::bitflags;
 
-use crate::impl_access_at_offset;
+use crate::{
+    impl_access_at_offset, print,
+    x86::io::{io_in_u32, io_out_u16, io_out_u32, io_out_u8},
+};
 
 pub use base_address_register::BaseAddressRegister;
 
@@ -18,17 +21,17 @@ use super::{PCI_CONFIG_ADDRESS, PCI_CONFIG_DATA, PCI_INVALID_VENDOR};
 
 pub mod base_address_register;
 pub mod macros;
-const DEVICE_INDEX_RANGE: core::ops::Range<u8> = 0..32;
+pub const DEVICE_INDEX_RANGE: core::ops::Range<u8> = 0..32;
 
 const BUS_SHIFT: usize = 16;
 const DEVICE_SHIFT: usize = 11;
-
 const VENDOR_ID_OFFSET: u32 = 0x0;
+
 const DEVICE_ID_OFFSET: u32 = 0x2;
 const CONTROL_REGISTER_OFFSET: u32 = 0x4;
 const STATUS_REGISTER_OFFSET: u32 = 0x6;
 const REVISION_ID_OFFSET: u32 = 0x8;
-const CLASS_CODE_OFFSET: u32 = 0x9;
+const CLASS_OFFSET: u32 = 0xB;
 const CACHE_LINE_SIZE_OFFSET: u32 = 0xC;
 const LATENCY_TIMER_OFFSET: u32 = 0xD;
 const HEADER_TYPE_OFFSET: u32 = 0xE;
@@ -41,8 +44,8 @@ pub const BASE_ADDRESS_REGISTERS_COUNT: usize = 6;
 
 const EXPANSION_ROM_BASE_ADDRESS_OFFSET: u32 = 0x30;
 
-const INTERRUPT_PIN_OFFSET: u32 = 0x3C;
-const INTERRUPT_LINE_OFFSET: u32 = 0x3D;
+const INTERRUPT_LINE_OFFSET: u32 = 0x3C;
+const INTERRUPT_PIN_OFFSET: u32 = 0x3D;
 
 pub struct MemoryMappedRegister<T> {
     offset: usize,
@@ -52,7 +55,7 @@ pub struct MemoryMappedRegister<T> {
 impl<T> MemoryMappedRegister<T> {
     pub const fn new(offset: usize) -> Self {
         Self {
-            offset: offset,
+            offset,
             _pin: PhantomData,
         }
     }
@@ -111,9 +114,56 @@ bitflags! {
     }
 }
 
-impl_access_at_offset!(u8);
-impl_access_at_offset!(u16);
-impl_access_at_offset!(u32);
+#[derive(Debug, Clone, Copy)]
+pub enum ClassCode {
+    TooOld,
+    MassStorageController,
+    NetworkController,
+    DisplayController,
+    MultimediaDevice,
+    MemoryController,
+    BridgeDevice,
+    SimpleCommunicationControllers,
+    BaseSystemPeripherals,
+    InputDevices,
+    DockingStations,
+    PROCESSORS,
+    SerialBusControllers,
+    WirelessController,
+    IntelligentIoControllers,
+    SatelliteCommunicationControllers,
+    EncryptionDecryptionControllers,
+    DataAcquisitionAndSignalProcessing,
+    RESERVED(u8),
+    UNFIT,
+}
+
+impl From<u8> for ClassCode {
+    fn from(value: u8) -> Self {
+        match value {
+            0x0 => ClassCode::TooOld,
+            0x1 => ClassCode::MassStorageController,
+            0x2 => ClassCode::NetworkController,
+            0x3 => ClassCode::DisplayController,
+            0x4 => ClassCode::MultimediaDevice,
+            0x5 => ClassCode::MemoryController,
+            0x6 => ClassCode::BridgeDevice,
+            0x7 => ClassCode::SimpleCommunicationControllers,
+            0x8 => ClassCode::BaseSystemPeripherals,
+            0x9 => ClassCode::InputDevices,
+            0xA => ClassCode::DockingStations,
+            0xB => ClassCode::PROCESSORS,
+            0xC => ClassCode::SerialBusControllers,
+            0xD => ClassCode::WirelessController,
+            0xE => ClassCode::IntelligentIoControllers,
+            0xF => ClassCode::SatelliteCommunicationControllers,
+            0x10 => ClassCode::EncryptionDecryptionControllers,
+            0x11 => ClassCode::DataAcquisitionAndSignalProcessing,
+            0xFF => ClassCode::UNFIT,
+            v => ClassCode::RESERVED(v),
+        }
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct PciConfigSpace {
@@ -125,31 +175,80 @@ pub struct PciConfigSpace {
 }
 
 impl PciConfigSpace {
+    fn read_offset_u8(&self, offset: u32) -> u8 {
+        let aligned_offset = offset & (!0b11);
+        (self.read_offset_u32(aligned_offset) >> (8 * (offset & 0b11))) as u8
+    }
+
+    fn read_offset_u16(&self, offset: u32) -> u16 {
+        debug_assert!(offset & 0b1 == 0);
+
+        let aligned_offset: u32 = offset & (!0b11);
+        (self.read_offset_u32(aligned_offset) >> (8 * (offset & 0b11))) as u16
+    }
+
+    fn read_offset_u32(&self, offset: u32) -> u32 {
+        debug_assert!(offset & 0b11 == 0);
+
+        unsafe {
+            io_out_u32(PCI_CONFIG_ADDRESS, self.get_base_addr() + offset);
+            io_in_u32(PCI_CONFIG_DATA)
+        }
+    }
+
+    fn write_offset_u8(&self, offset: u32, value: u8) {
+        let aligned_offset: u32 = offset & (!0b11);
+
+        let masked_orig_value = self.read_offset_u32(offset) & !(0xFF << 8 * (offset & 0b11));
+        let shifted_value = (value as u32) << 8 * (offset & 0b11);
+
+        self.write_offset_u32(aligned_offset, masked_orig_value | shifted_value);
+    }
+
+    fn write_offset_u16(&self, offset: u32, value: u16) {
+        debug_assert!(offset & 0b1 == 0);
+        let aligned_offset: u32 = offset & (!0b11);
+
+        let masked_orig_value = self.read_offset_u32(offset) & !(0xFFFF << 8 * (offset & 0b11));
+        let shifted_value = (value as u32) << 8 * (offset & 0b11);
+
+        self.write_offset_u32(aligned_offset, masked_orig_value | shifted_value);
+    }
+
+    fn write_offset_u32(&self, offset: u32, value: u32) {
+        debug_assert!(offset & 0b11 == 0);
+
+        unsafe {
+            crate::x86::io::io_out_u32(PCI_CONFIG_ADDRESS, self.get_base_addr() + offset);
+            io_out_u32(PCI_CONFIG_DATA, value);
+        }
+    }
+
     pub fn new(bus_index: u8, device_index: u8) -> Option<Self> {
         let mut config_space = Self {
             bus_index,
             device_index,
             device_id: 0,
-            vendor_id: 0,
+            vendor_id: PCI_INVALID_VENDOR,
             base_address_registers: [BaseAddressRegister::EmptyEntry; BASE_ADDRESS_REGISTERS_COUNT],
         };
 
-        if DEVICE_INDEX_RANGE.contains(&device_index)
-            && config_space.get_vendor_id() != PCI_INVALID_VENDOR
-        {
-            config_space.init_bar();
+        let vendor_id = config_space.get_vendor_id();
 
-            let mut new_config_space = config_space.get_command_register();
-            new_config_space.set(CommandRegister::BUS_MASTER, true);
-            config_space.set_command_register(new_config_space);
-
-            config_space.vendor_id = config_space.get_vendor_id();
-            config_space.device_id = config_space.get_device_id();
-
-            Some(config_space)
-        } else {
-            None
+        if !DEVICE_INDEX_RANGE.contains(&device_index) || vendor_id == PCI_INVALID_VENDOR {
+            return None;
         }
+
+        config_space.vendor_id = vendor_id;
+        config_space.device_id = config_space.get_device_id();
+
+        config_space.init_bar();
+
+        let mut new_config_space = config_space.get_command_register();
+        new_config_space.set(CommandRegister::BUS_MASTER, true);
+        config_space.set_command_register(new_config_space);
+
+        Some(config_space)
     }
 
     fn get_base_addr(&self) -> u32 {
@@ -227,6 +326,10 @@ impl PciConfigSpace {
 
     pub fn set_expansion_rom_register(&self, value: u32) {
         self.write_offset_u32(EXPANSION_ROM_BASE_ADDRESS_OFFSET, value);
+    }
+
+    pub fn get_class_code(&self) -> ClassCode {
+        self.read_offset_u8(CLASS_OFFSET).into()
     }
 }
 

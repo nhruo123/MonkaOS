@@ -55,6 +55,14 @@ impl<T> Mutex<T> {
     pub fn into_inner(self) -> T {
         self.data.into_inner()
     }
+
+    pub unsafe fn get_raw_ptr(&self) -> *const T {
+        self.data.get()
+    }
+
+    pub unsafe fn bypass(&self) -> &T {
+        unsafe { self.data.get().as_ref().unwrap() }
+    }
 }
 
 impl<'a, T> core::ops::Deref for MutexGuard<'a, T> {
