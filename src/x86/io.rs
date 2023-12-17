@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_variables)]
+
 use core::arch::asm;
 
 pub unsafe fn io_out_u32(port: u16, value: u32) {

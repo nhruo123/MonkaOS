@@ -17,7 +17,7 @@ use crate::{
     },
     x86::{
         gdt::load_gdt,
-        hlt, hlt_loop,
+        hlt_loop,
         interrupts::{enable_interrupt, idt::load_idt, pic_8259::PIC},
     },
 };
@@ -81,18 +81,17 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
     {
         unsafe {
             PIC.lock().init();
-            PIC.lock().master.write_mask(0xFE);
-            PIC.lock().slave.write_mask(0xFF);
+            // PIC.lock().master.write_mask(0xFE);
+            // PIC.lock().slave.write_mask(0xFF);
 
-            // PIC.lock().master.write_mask(0x00);
-            // PIC.lock().slave.write_mask(0x00);
+            PIC.lock().master.write_mask(0x00);
+            PIC.lock().slave.write_mask(0x00);
 
             enable_interrupt();
         };
     }
 
     unsafe {
-        println!("transmit head at: {}", NETWORK_DRIVER.lock().as_ref().unwrap().get_head());
         NETWORK_DRIVER
             .lock()
             .as_mut()
@@ -100,7 +99,6 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
             .transmit_packet("Hello world".as_bytes(), true)
             .unwrap();
 
-        println!("new transmit head at: {}", NETWORK_DRIVER.lock().as_ref().unwrap().get_head())
     }
 
     println!("hello form the other side!");

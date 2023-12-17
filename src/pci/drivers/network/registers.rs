@@ -4,7 +4,7 @@ use crate::pci::config_space::MemoryMappedRegister;
 use bitflags::bitflags;
 use modular_bitfield::{
     bitfield,
-    specifiers::{B1, B10, B15, B16, B2, B5, B6},
+    specifiers::{B1, B10, B15, B16, B2, B3, B4, B5, B6, B13},
     BitfieldSpecifier,
 };
 
@@ -150,52 +150,108 @@ pub struct TransmissionIpgRegister {
     __: B2,
 }
 
-bitflags! {
-    #[derive(Default)]
-    pub struct TransmissionCommandRegister: u8 {
-        const END_OF_PACKET = 1 << 0;
-        const IFCS = 1 << 1;
-        const IC = 1 << 2;
-        const REPORT_STATUS = 1 << 3;
-        const REPORT_PACKET_SEND = 1 << 4;
-        const DEXT = 1 << 5;
-        const VLE = 1 << 6;
-        const IDE = 1 << 7;
-    }
-    #[derive(Default)]
-    pub struct TransmissionStatusRegister: u8 {
-        // 4 RESERVE BITS
-        const DESCRIPTOR_DONE = 1 << 4;
-        const EXCESS_COLLISIONS = 1 << 5;
-        const LATE_COLLISION = 1 << 6;
-        const TRANSMIT_UNDERRUN = 1 << 7;
-    }
+#[bitfield]
+#[repr(packed, C)]
+#[derive(Debug)]
+pub struct EepromReadRegister {
+    pub start_read: bool,
+    #[skip]
+    __: B3,
+    pub done: bool,
+    #[skip]
+    __: B3,
+    pub read_address: u8,
+    pub read_data: u16,
 }
 
-#[derive(Default, Clone, Copy)]
-#[repr(C, packed)]
-pub struct TransmissionDescriptor {
-    pub base_address: u64,
-    pub length: u16,
-    pub cso: u8,
-    pub command: TransmissionCommandRegister,
-    pub status: TransmissionStatusRegister,
-    pub css: u8,
-    pub special: u16,
+#[derive(BitfieldSpecifier, Clone, Copy, Debug)]
+#[bits = 2]
+pub enum LoopBackMode {
+    NoLoopBack = 0b00,
+    PhyOrExternal = 0b11,
 }
 
-impl TransmissionDescriptor {
-    pub const fn empty() -> Self {
-        Self {
-            base_address: 0,
-            command: TransmissionCommandRegister::REPORT_STATUS,
-            cso: 0,
-            length: 0,
-            css: 0,
-            special: 0,
-            status: TransmissionStatusRegister::DESCRIPTOR_DONE,
-        }
-    }
+#[derive(BitfieldSpecifier, Clone, Copy, Debug)]
+#[bits = 2]
+pub enum ReceiveDescriptionMinThreshold {
+    Half,
+    Quarter,
+    Eight,
+}
+
+#[derive(BitfieldSpecifier, Clone, Copy, Debug)]
+#[bits = 2]
+pub enum ReceiveBufferSize {
+    Bytes2048,
+    Bytes1024,
+    Bytes512,
+    Bytes256,
+}
+
+#[bitfield]
+#[repr(packed, C)]
+#[derive(Debug)]
+pub struct ReceiveControlRegister {
+    #[skip]
+    __: B1,
+    pub enabled: bool,
+    pub store_bad_packets: bool,
+    pub unicast_promiscuous: bool,
+    pub multicast_promiscuous: bool,
+    pub long_packet_reception: bool,
+    pub loopback_mod: LoopBackMode,
+    pub receive_description_min_threshold: ReceiveDescriptionMinThreshold,
+    #[skip]
+    __: B2,
+    // TODO: implement enum
+    pub mo: B2,
+    #[skip]
+    __: B1,
+    pub accept_broadcast: bool,
+    pub receive_buffer_size: ReceiveBufferSize,
+    pub vlan_filter: bool,
+    pub cfien: bool,
+    pub cfi: bool,
+    #[skip]
+    __: B1,
+    pub discard_pause_frames: bool,
+    pub pass_mac_control_frames: bool,
+    #[skip]
+    __: B1,
+    pub buffer_size_extension: bool,
+    pub strip_ethernet_crc: bool,
+    #[skip]
+    __: B5,
+}
+
+#[bitfield]
+#[repr(packed, C)]
+#[derive(Debug)]
+pub struct ReceiveDelayTimerRegister {
+    // every increment is 1.024 ps
+    pub delay_timer: u16,
+    #[skip]
+    __: B15,
+    pub flush_partial_descriptor_block: bool,
+}
+
+#[derive(BitfieldSpecifier, Clone, Copy, Debug)]
+#[bits = 2]
+pub enum AddressSelect {
+    DestinationAddress,
+    SourceAddress,
+}
+
+#[bitfield]
+#[repr(packed, C)]
+#[derive(Debug)]
+pub struct ReceiverAddressHighRegister {
+    // every increment is 1.024 ps
+    pub receiver_address_high: u16,
+    pub address_select: AddressSelect,
+    #[skip]
+    __: B13,
+    pub address_valid: bool,
 }
 
 pub const DEVICE_CONTROL: MemoryMappedRegister<DeviceControlRegister> =
@@ -203,21 +259,45 @@ pub const DEVICE_CONTROL: MemoryMappedRegister<DeviceControlRegister> =
 pub const DEVICE_STATUS: MemoryMappedRegister<DeviceStatusRegister> =
     MemoryMappedRegister::new(0x0008);
 
+pub const EEPROM: MemoryMappedRegister<EepromReadRegister> = MemoryMappedRegister::new(0x00014);
+
 pub const INTERRUPT_MASK: MemoryMappedRegister<InterruptMaskRegister> =
     MemoryMappedRegister::new(0x000D0);
+
+pub const RECEIVE_CONTROL_REGISTER: MemoryMappedRegister<ReceiveControlRegister> =
+    MemoryMappedRegister::new(0x00100);
 
 pub const TRANSMIT_CONTROL_REGISTER: MemoryMappedRegister<TransmissionControlRegister> =
     MemoryMappedRegister::new(0x00400);
 pub const TRANSMIT_IPG_REGISTER: MemoryMappedRegister<TransmissionIpgRegister> =
     MemoryMappedRegister::new(0x00410);
 
+pub const RECEIVE_DESCRIPTOR_BASE_LOW: MemoryMappedRegister<u32> =
+    MemoryMappedRegister::new(0x02800);
+pub const RECEIVE_DESCRIPTOR_BASE_HIGH: MemoryMappedRegister<u32> =
+    MemoryMappedRegister::new(0x02804);
+pub const RECEIVE_DESCRIPTOR_LEN: MemoryMappedRegister<u32> = MemoryMappedRegister::new(0x02808);
+pub const RECEIVE_DESCRIPTOR_BASE_HEAD: MemoryMappedRegister<u32> =
+    MemoryMappedRegister::new(0x02810);
+pub const RECEIVE_DESCRIPTOR_BASE_TAIL: MemoryMappedRegister<u32> =
+    MemoryMappedRegister::new(0x02818);
+pub const RECEIVE_DELAY_TIMER: MemoryMappedRegister<ReceiveDelayTimerRegister> =
+    MemoryMappedRegister::new(0x02820);
+
 pub const TRANSMIT_DESCRIPTOR_BASE_LOW: MemoryMappedRegister<u32> =
     MemoryMappedRegister::new(0x3800);
 pub const TRANSMIT_DESCRIPTOR_BASE_HIGH: MemoryMappedRegister<u32> =
     MemoryMappedRegister::new(0x3804);
-pub const TRANSMIT_DESCRIPTOR_BASE_LEN: MemoryMappedRegister<u64> =
-    MemoryMappedRegister::new(0x3808);
-pub const TRANSMIT_DESCRIPTOR_BASE_HEAD: MemoryMappedRegister<u64> =
+pub const TRANSMIT_DESCRIPTOR_LEN: MemoryMappedRegister<u32> = MemoryMappedRegister::new(0x3808);
+pub const TRANSMIT_DESCRIPTOR_BASE_HEAD: MemoryMappedRegister<u32> =
     MemoryMappedRegister::new(0x3810);
-pub const TRANSMIT_DESCRIPTOR_BASE_TAIL: MemoryMappedRegister<u64> =
+pub const TRANSMIT_DESCRIPTOR_BASE_TAIL: MemoryMappedRegister<u32> =
     MemoryMappedRegister::new(0x3818);
+
+pub const MULTICAST_TABLE_ARRAY: MemoryMappedRegister<[u32; 4]> =
+    MemoryMappedRegister::new(0x05400);
+
+pub const RECEIVE_ADDRESS_LOW_0: MemoryMappedRegister<u32> = MemoryMappedRegister::new(0x05400);
+pub const RECEIVE_ADDRESS_HIGH_0: MemoryMappedRegister<ReceiverAddressHighRegister> = MemoryMappedRegister::new(0x05404);
+
+pub const EEPROM_ETHERNET_ADDRESS_OFFSET: u8 = 0x0;

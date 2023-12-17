@@ -5,7 +5,7 @@ use crate::{
 };
 
 pub extern "x86-interrupt" fn generic_e1000_interrupt(
-    interrupt_stack_frame: &mut InterruptStackFrame,
+    _interrupt_stack_frame: &mut InterruptStackFrame,
 ) {
     println!("Received e1000 interrupt");
 
