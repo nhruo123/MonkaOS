@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use thiserror::Error;
 
-use self::network::{E1000_DRIVER_ENTRY, INTEL_82562GT_ENTRY};
+use self::network::E1000_DRIVER_ENTRY;
 
 use super::config_space::{BaseAddressRegister, PciConfigSpace};
 
@@ -26,4 +26,4 @@ pub struct PciDriver {
     pub init_device: PciInitFunction,
 }
 
-pub static PCI_DRIVERS: &'static [PciDriver] = &[E1000_DRIVER_ENTRY, INTEL_82562GT_ENTRY];
+pub static PCI_DRIVERS: &'static [PciDriver] = &[E1000_DRIVER_ENTRY];

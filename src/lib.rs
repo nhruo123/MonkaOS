@@ -1,6 +1,7 @@
 #![no_std]
 #![feature(strict_provenance)]
 #![feature(abi_x86_interrupt)]
+#![feature(const_for)]
 #![feature(error_in_core)]
 
 extern crate alloc;
@@ -11,6 +12,7 @@ use core::panic::PanicInfo;
 use crate::{
     memory::physical::{buddy_allocator::buddy_allocator::BuddyAllocator, global_alloc::ALLOCATOR},
     multiboot::{memory_map::MemoryEntryType, MultiBootInfo},
+    network_stack::{ethernet::EthernetFrame, arp::ArpPacket},
     pci::{
         check_pci_buses,
         drivers::{network::NETWORK_DRIVER, PCI_DRIVERS},
@@ -25,9 +27,11 @@ use crate::{
 mod memory;
 mod multiboot;
 mod mutex;
+mod network_stack;
 mod pci;
 mod vga_buffer;
 mod x86;
+mod util;
 
 #[no_mangle]
 pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
@@ -92,13 +96,31 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
     }
 
     unsafe {
-        NETWORK_DRIVER
-            .lock()
-            .as_mut()
-            .unwrap()
-            .transmit_packet("Hello world".as_bytes(), true)
-            .unwrap();
+        let mut card_lock = NETWORK_DRIVER.lock();
+        let card = card_lock.as_mut().unwrap();
 
+        // https://wiki.qemu.org/Documentation/Networking
+        let arp_packet = ArpPacket {
+            hardware_len: 6,
+            hardware_type: network_stack::arp::HardwareType::Ethernet,
+            operation: network_stack::arp::Operation::Request,
+            protocol_len: 4,
+            protocol_type: network_stack::ethernet::EitherType::Ipv4,
+            sender_hardware_address: &card.get_address().bytes,
+            sender_protocol_address: &[0x01,0x01,0x01,0x01],
+            target_hardware_address: &[0xFF,0xFF,0xFF,0xFF,0xFF,0xFF],
+            target_protocol_address: &[10,0,2,2],
+        };
+
+        let frame = EthernetFrame {
+            data: &arp_packet.to_bytes(),
+            destination_address: network_stack::ethernet::EthernetAddress::broadcast(),
+            source_address: card.get_address(),
+            ether_type: network_stack::ethernet::EitherType::Arp,
+        };
+
+        card.transmit_packet(&frame.to_bytes(true), true)
+            .unwrap();
     }
 
     println!("hello form the other side!");

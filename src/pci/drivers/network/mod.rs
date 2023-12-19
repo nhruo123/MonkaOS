@@ -14,6 +14,7 @@ use thiserror::Error;
 use crate::{
     memory::physical::global_alloc::ALLOCATOR,
     mutex::Mutex,
+    network_stack::ethernet::EthernetAddress,
     pci::{
         config_space::{base_address_register::MemorySpace, BaseAddressRegister, PciConfigSpace},
         drivers::network::{
@@ -64,27 +65,6 @@ pub type Result<T> = core::result::Result<T, NetworkError>;
 
 pub static NETWORK_DRIVER: Mutex<Option<E1000Driver>> = Mutex::new(None);
 
-#[derive(Debug, Clone, Copy)]
-pub struct EthernetAddress {
-    pub bytes: [u8; 6],
-}
-
-impl core::fmt::Display for EthernetAddress {
-    fn fmt(&self, f: &mut Formatter) -> core::fmt::Result {
-        let _ = write!(
-            f,
-            "{:<02X}:{:<02X}:{:<02X}:{:<02X}:{:<02X}:{:<02X}",
-            self.bytes[0],
-            self.bytes[1],
-            self.bytes[2],
-            self.bytes[3],
-            self.bytes[4],
-            self.bytes[5]
-        );
-        Ok(())
-    }
-}
-
 pub struct E1000Driver {
     pci_config_space: PciConfigSpace,
     ethernet_address: EthernetAddress,
@@ -94,12 +74,6 @@ pub struct E1000Driver {
 pub const E1000_DRIVER_ENTRY: PciDriver = PciDriver {
     vendor_id: 0x8086,
     device_id: 0x100E,
-    init_device: init_e1000,
-};
-
-pub const INTEL_82562GT_ENTRY: PciDriver = PciDriver {
-    vendor_id: 0x8086,
-    device_id: 0x10C4,
     init_device: init_e1000,
 };
 
@@ -328,9 +302,7 @@ impl E1000Driver {
         current_descriptor.base_address = (data as *const [u8]).addr() as u64;
         current_descriptor.length = data.len() as u16;
 
-        current_descriptor
-            .command
-            .set(TransmissionCommandRegister::END_OF_PACKET, last_packet);
+        current_descriptor.command = TransmissionCommandRegister::END_OF_PACKET;
 
         TRANSMIT_DESCRIPTOR_BASE_TAIL.write(
             &mut self.mmio_space,
@@ -340,10 +312,18 @@ impl E1000Driver {
         Ok(())
     }
 
-    pub unsafe fn get_receive_tail_and_head(&self) -> (u32, u32) {
-        let tail = RECEIVE_DESCRIPTOR_BASE_TAIL.read(&self.mmio_space);
-        let head = RECEIVE_DESCRIPTOR_BASE_HEAD.read(&self.mmio_space);
+    pub unsafe fn get_receive_packet_test(&self) {
+        let tail_orig = RECEIVE_DESCRIPTOR_BASE_TAIL.read(&self.mmio_space);
+        let head_orig = RECEIVE_DESCRIPTOR_BASE_HEAD.read(&self.mmio_space);
 
-        (tail, head)
+        while tail_orig == RECEIVE_DESCRIPTOR_BASE_TAIL.read(&self.mmio_space)
+            && head_orig == RECEIVE_DESCRIPTOR_BASE_HEAD.read(&self.mmio_space)
+        {
+            hint::spin_loop();
+        }
+    }
+
+    pub fn get_address(&self) -> EthernetAddress {
+        self.ethernet_address.clone()
     }
 }
