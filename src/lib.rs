@@ -12,7 +12,7 @@ use core::panic::PanicInfo;
 use crate::{
     memory::physical::{buddy_allocator::buddy_allocator::BuddyAllocator, global_alloc::ALLOCATOR},
     multiboot::{memory_map::MemoryEntryType, MultiBootInfo},
-    network_stack::{ethernet::EthernetFrame, arp::ArpPacket},
+    network_stack::{arp::ArpPacket, ethernet::EthernetFrame},
     pci::{
         check_pci_buses,
         drivers::{network::NETWORK_DRIVER, PCI_DRIVERS},
@@ -29,9 +29,9 @@ mod multiboot;
 mod mutex;
 mod network_stack;
 mod pci;
+mod util;
 mod vga_buffer;
 mod x86;
-mod util;
 
 #[no_mangle]
 pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
@@ -107,9 +107,9 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
             protocol_len: 4,
             protocol_type: network_stack::ethernet::EitherType::Ipv4,
             sender_hardware_address: &card.get_address().bytes,
-            sender_protocol_address: &[0x01,0x01,0x01,0x01],
-            target_hardware_address: &[0xFF,0xFF,0xFF,0xFF,0xFF,0xFF],
-            target_protocol_address: &[10,0,2,2],
+            sender_protocol_address: &[0x01, 0x01, 0x01, 0x01],
+            target_hardware_address: &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
+            target_protocol_address: &[10, 0, 2, 2],
         };
 
         let frame = EthernetFrame {
@@ -119,8 +119,7 @@ pub extern "C" fn _start(multiboot_info_ptr: usize) -> ! {
             ether_type: network_stack::ethernet::EitherType::Arp,
         };
 
-        card.transmit_packet(&frame.to_bytes(true), true)
-            .unwrap();
+        card.transmit_packet(&frame.to_bytes(true), true).unwrap();
     }
 
     println!("hello form the other side!");
